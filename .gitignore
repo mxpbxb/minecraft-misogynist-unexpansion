@@ -1,0 +1,6 @@
+content/
+target/
+*.hnmod
+*.hmod
+native/api/Cargo.lock
+install.sh

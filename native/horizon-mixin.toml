@@ -1,0 +1,12 @@
+# Minecraft Misogynist Unexpansion for Horizon, built by its launcher: `horizon-launcher native-build`.
+# Mobs taken out (set in removed_mobs.cfg), the original farm animals and their old babies.
+# The recipes and items are the content mod `misogynist_unexpansion`.
+[mod]
+id = "misogynist_unexpansion_native"
+version = "0.1.0"
+
+[compatibility]
+horizon_revision = "1fe4e6fe0252c44efd41d882daee0468389f7d5f"
+
+[api]
+path = "api"
