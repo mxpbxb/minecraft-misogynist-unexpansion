@@ -20,6 +20,10 @@ A [Horizon](https://playhorizon.dev) mod that takes the game back towards how it
   the new look if you bring them back.
 - **Fishing as it was.** Treasure can be caught anywhere again, not only in open water (a pond fishes
   like the ocean), and tropical fish come 7 times in 100 instead of 2.
+- **Key Binds search by key.** The search box on the Key Binds screen finds a binding by the key
+  it is on as well as by its name: type `r`, `shift` or `mouse` to see what uses it. The idea is
+  [Controlling](https://github.com/jaredlll08/Controlling)'s (Jaredlll08, MIT), written anew for
+  Horizon. (Horizon already has Mouse Tweaks built in: Horizon Settings, Extras.)
 - **What the removed mobs gave, made another way:**
 
   | Item | How |

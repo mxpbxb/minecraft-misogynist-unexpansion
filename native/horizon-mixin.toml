@@ -3,10 +3,40 @@
 # The recipes and items are the content mod `misogynist_unexpansion`.
 [mod]
 id = "misogynist_unexpansion_native"
-version = "0.3.0"
+version = "0.4.0"
 
 [compatibility]
 horizon_revision = "1fe4e6fe0252c44efd41d882daee0468389f7d5f"
 
 [api]
 path = "api"
+
+# The Key Binds screen's search finds a binding by its key too (Controlling's search by key, by
+# Jaredlll08, MIT). Its filter compares the query with each binding's translated name: while that
+# screen lays itself out, the name carries the binding's key as well.
+[[module]]
+id = "keybind-search-state"
+file = "crates/horizon-client-core/src/lib.rs"
+name = "keybind_search"
+visibility = "pub"
+source = "keybind_search_state.rs"
+
+[[injection]]
+id = "keybind-search-arm"
+kind = "HEAD"
+target = "horizon_client_render::options_ui::OptionsUi::layout"
+helper = "keybind_search.rs"
+bindings = [
+  { name = "ui", ty = "&crate::options_ui::OptionsUi", value = "&*self" },
+  { name = "s", ty = "&crate::settings::Settings", value = "s" },
+]
+
+[[injection]]
+id = "keybind-search-name"
+kind = "RETURN"
+target = "horizon_client_core::lang::get"
+helper = "keybind_name.rs"
+bindings = [
+  { name = "key", ty = "&str", value = "key" },
+  { name = "value", ty = "String", value = "$value" },
+]
