@@ -1,0 +1,472 @@
+//! Babies drawn as they were before the baby redesign: each one the grown mob's model and textures
+//! (and its overlays: wool, collars, a villager's clothes, a horse's markings), at the old sizes.
+//!
+//! Most were `AgeableListModel`s: the head drawn on its own, kept big (or a little smaller), moved
+//! down and forward, and the body at half size, moved down to the ground. Villagers and squid were the
+//! grown model at half size. The numbers are each model's from before the redesign.
+//!
+//! The server side reads what picks a baby's textures (its variant, colours, villager type) from its
+//! saved data, a few times a second, for the drawing to use: a mob's drawing can't read it.
+
+use std::collections::{HashMap, HashSet};
+use std::f32::consts::PI;
+use std::sync::{LazyLock, Mutex};
+
+use horizon_client::mod_api::{Compound, Flow, Host, MobSubmitEvent, ModelPart, Tag};
+
+/// How a baby is shrunk.
+#[derive(Clone, Copy)]
+enum Shape {
+    /// `AgeableListModel`: the head at `head_scale`, moved by `head` (y, z in pixels); the rest at
+    /// `body_scale`, moved down by `body_y` pixels.
+    Split { head_scale: f32, head: [f32; 2], body_scale: f32, body_y: f32 },
+    /// The whole grown model at this size.
+    Whole(f32),
+}
+
+/// How its parts move.
+#[derive(Clone, Copy, PartialEq)]
+enum Anim {
+    Quadruped,
+    Chicken,
+    /// Zombies' arms held out.
+    Zombie,
+    /// Arms swinging as it walks.
+    Humanoid,
+    Villager,
+    Horse,
+    Still,
+}
+
+struct Old {
+    kind: &'static str,
+    layer: &'static str,
+    /// The texture when the server hasn't said which yet.
+    texture: &'static str,
+    shape: Shape,
+    anim: Anim,
+    /// The model's root parts drawn as the head.
+    head: &'static [&'static str],
+}
+
+const QUAD_HEAD: &[&str] = &["head"];
+const HUMAN_HEAD: &[&str] = &["head", "hat"];
+const fn quad(y: f32, z: f32) -> Shape {
+    Shape::Split { head_scale: 1.0, head: [y, z], body_scale: 0.5, body_y: 24.0 }
+}
+/// `HumanoidModel`'s: `AgeableListModel(true, 16, 0, 2, 2, 24)`.
+const HUMANOID: Shape = Shape::Split { head_scale: 0.75, head: [16.0, 0.0], body_scale: 0.5, body_y: 24.0 };
+/// `HoglinModel`'s: `(true, 8, 6, 1.9, 2, 24)`.
+const HOGLIN: Shape = Shape::Split { head_scale: 1.5 / 1.9, head: [8.0, 6.0], body_scale: 0.5, body_y: 24.0 };
+/// `HorseModel`'s: `(true, 16.2, 1.36, 2.7272, 2, 20)`.
+const HORSE: Shape = Shape::Split { head_scale: 1.5 / 2.7272, head: [16.2, 1.36], body_scale: 0.5, body_y: 20.0 };
+
+const OLD: &[Old] = &[
+    Old { kind: "minecraft:cow", layer: "minecraft:cow#main", texture: "entity/cow/cow_temperate", shape: quad(10.0, 4.0), anim: Anim::Quadruped, head: QUAD_HEAD },
+    Old { kind: "minecraft:mooshroom", layer: "minecraft:mooshroom#main", texture: "entity/cow/mooshroom_red", shape: quad(10.0, 4.0), anim: Anim::Quadruped, head: QUAD_HEAD },
+    Old { kind: "minecraft:pig", layer: "minecraft:pig#main", texture: "entity/pig/pig_temperate", shape: quad(4.0, 4.0), anim: Anim::Quadruped, head: QUAD_HEAD },
+    Old { kind: "minecraft:sheep", layer: "minecraft:sheep#main", texture: "entity/sheep/sheep", shape: quad(8.0, 4.0), anim: Anim::Quadruped, head: QUAD_HEAD },
+    Old { kind: "minecraft:chicken", layer: "minecraft:chicken#main", texture: "entity/chicken/chicken_temperate", shape: quad(5.0, 2.0), anim: Anim::Chicken, head: QUAD_HEAD },
+    Old { kind: "minecraft:wolf", layer: "minecraft:wolf#main", texture: "entity/wolf/wolf", shape: quad(5.0, 2.0), anim: Anim::Quadruped, head: QUAD_HEAD },
+    // `OcelotModel`: `(true, 10, 4)`.
+    Old {
+        kind: "minecraft:cat",
+        layer: "minecraft:cat#main",
+        texture: "entity/cat/cat_tabby",
+        shape: Shape::Split { head_scale: 0.75, head: [10.0, 4.0], body_scale: 0.5, body_y: 24.0 },
+        anim: Anim::Quadruped,
+        head: QUAD_HEAD,
+    },
+    Old {
+        kind: "minecraft:ocelot",
+        layer: "minecraft:ocelot#main",
+        texture: "entity/cat/ocelot",
+        shape: Shape::Split { head_scale: 0.75, head: [10.0, 4.0], body_scale: 0.5, body_y: 24.0 },
+        anim: Anim::Quadruped,
+        head: QUAD_HEAD,
+    },
+    // `RabbitModel.renderToBuffer`: the head at 0.5667, the body at 0.4.
+    Old {
+        kind: "minecraft:rabbit",
+        layer: "minecraft:rabbit#main",
+        texture: "entity/rabbit/rabbit_brown",
+        shape: Shape::Split { head_scale: 0.566_666_7, head: [22.0, 2.0], body_scale: 0.4, body_y: 36.0 },
+        anim: Anim::Still,
+        head: &["head", "left_ear", "right_ear", "nose"],
+    },
+    Old { kind: "minecraft:zombie", layer: "minecraft:zombie#main", texture: "entity/zombie/zombie", shape: HUMANOID, anim: Anim::Zombie, head: HUMAN_HEAD },
+    Old { kind: "minecraft:husk", layer: "minecraft:husk#main", texture: "entity/zombie/husk", shape: HUMANOID, anim: Anim::Zombie, head: HUMAN_HEAD },
+    Old { kind: "minecraft:drowned", layer: "minecraft:drowned#main", texture: "entity/zombie/drowned", shape: HUMANOID, anim: Anim::Zombie, head: HUMAN_HEAD },
+    Old {
+        kind: "minecraft:zombie_villager",
+        layer: "minecraft:zombie_villager#main",
+        texture: "entity/zombie_villager/zombie_villager",
+        shape: HUMANOID,
+        anim: Anim::Zombie,
+        head: HUMAN_HEAD,
+    },
+    Old { kind: "minecraft:piglin", layer: "minecraft:piglin#main", texture: "entity/piglin/piglin", shape: HUMANOID, anim: Anim::Humanoid, head: HUMAN_HEAD },
+    Old {
+        kind: "minecraft:zombified_piglin",
+        layer: "minecraft:zombified_piglin#main",
+        texture: "entity/piglin/zombified_piglin",
+        shape: HUMANOID,
+        anim: Anim::Zombie,
+        head: HUMAN_HEAD,
+    },
+    // `VillagerRenderer.scale`: 0.9375, and half that for a child.
+    Old { kind: "minecraft:villager", layer: "minecraft:villager#main", texture: "entity/villager/villager", shape: Shape::Whole(0.468_75), anim: Anim::Villager, head: &[] },
+    Old { kind: "minecraft:hoglin", layer: "minecraft:hoglin#main", texture: "entity/hoglin/hoglin", shape: HOGLIN, anim: Anim::Quadruped, head: QUAD_HEAD },
+    Old { kind: "minecraft:zoglin", layer: "minecraft:zoglin#main", texture: "entity/hoglin/zoglin", shape: HOGLIN, anim: Anim::Quadruped, head: QUAD_HEAD },
+    Old { kind: "minecraft:horse", layer: "minecraft:horse#main", texture: "entity/horse/horse_white", shape: HORSE, anim: Anim::Horse, head: &["head_parts"] },
+    Old { kind: "minecraft:donkey", layer: "minecraft:donkey#main", texture: "entity/horse/donkey", shape: HORSE, anim: Anim::Horse, head: &["head_parts"] },
+    Old { kind: "minecraft:mule", layer: "minecraft:mule#main", texture: "entity/horse/mule", shape: HORSE, anim: Anim::Horse, head: &["head_parts"] },
+    Old {
+        kind: "minecraft:skeleton_horse",
+        layer: "minecraft:skeleton_horse#main",
+        texture: "entity/horse/horse_skeleton",
+        shape: HORSE,
+        anim: Anim::Horse,
+        head: &["head_parts"],
+    },
+    Old {
+        kind: "minecraft:zombie_horse",
+        layer: "minecraft:zombie_horse#main",
+        texture: "entity/horse/horse_zombie",
+        shape: HORSE,
+        anim: Anim::Horse,
+        head: &["head_parts"],
+    },
+    Old { kind: "minecraft:squid", layer: "minecraft:squid#main", texture: "entity/squid/squid", shape: Shape::Whole(0.5), anim: Anim::Still, head: &[] },
+    Old { kind: "minecraft:glow_squid", layer: "minecraft:glow_squid#main", texture: "entity/squid/glow_squid", shape: Shape::Whole(0.5), anim: Anim::Still, head: &[] },
+];
+
+fn old(kind: &str) -> Option<&'static Old> {
+    OLD.iter().find(|o| o.kind == kind)
+}
+
+/// What a baby looks like, as its saved data says: its textures on its model, and its overlays.
+#[derive(Clone, Debug, Default)]
+struct Look {
+    texture: String,
+    /// Another layer (or the same) drawn over it: layer, texture, tint.
+    overlays: Vec<(String, String, u32)>,
+}
+
+static LOOKS: LazyLock<Mutex<HashMap<u32, Look>>> = LazyLock::new(Default::default);
+
+/// `DyeColor.getTextureDiffuseColor`, by dye id.
+const DYES: [u32; 16] = [
+    0xF9FFFE, 0xF9801D, 0xC74EBD, 0x3AB3DA, 0xFED83D, 0x80C71F, 0xF38BAA, 0x474F52, 0x9D9D97, 0x169C9C, 0x8932B8,
+    0x3C44AA, 0x835432, 0x5E7C16, 0xB02E26, 0x1D1D21,
+];
+const WOLVES: [(&str, &str); 9] = [
+    ("pale", "wolf"),
+    ("spotted", "wolf_spotted"),
+    ("snowy", "wolf_snowy"),
+    ("black", "wolf_black"),
+    ("ashen", "wolf_ashen"),
+    ("rusty", "wolf_rusty"),
+    ("woods", "wolf_woods"),
+    ("chestnut", "wolf_chestnut"),
+    ("striped", "wolf_striped"),
+];
+const HORSE_COLOURS: [&str; 7] = ["white", "creamy", "chestnut", "brown", "black", "gray", "darkbrown"];
+const MARKINGS: [&str; 5] = ["", "white", "whitefield", "whitedots", "blackdots"];
+
+fn number(tag: &Compound, key: &str) -> Option<i64> {
+    match tag.get(&key.into())? {
+        Tag::Byte(n) => Some(i64::from(*n)),
+        Tag::Short(n) => Some(i64::from(*n)),
+        Tag::Int(n) => Some(i64::from(*n)),
+        Tag::Long(n) => Some(*n),
+        _ => None,
+    }
+}
+
+fn text(tag: &Compound, key: &str) -> Option<String> {
+    match tag.get(&key.into())? {
+        Tag::String(s) => {
+            let s = String::from_utf16_lossy(&s.0);
+            Some(s.strip_prefix("minecraft:").unwrap_or(&s).to_owned())
+        }
+        _ => None,
+    }
+}
+
+fn is_baby(tag: &Compound) -> bool {
+    number(tag, "Age").is_some_and(|a| a < 0) || number(tag, "IsBaby").is_some_and(|b| b != 0)
+}
+
+fn dye(n: Option<i64>, default: usize) -> u32 {
+    DYES[n.map_or(default, |n| (n as usize) & 15)]
+}
+
+/// A villager's (or zombie villager's) type: `VillagerData.type`.
+fn villager_type(tag: &Compound) -> String {
+    match tag.get(&"VillagerData".into()) {
+        Some(Tag::Compound(d)) => text(d, "type").unwrap_or_else(|| "plains".into()),
+        _ => "plains".into(),
+    }
+}
+
+fn look_of(o: &Old, tag: &Compound) -> Look {
+    let mut look = Look { texture: o.texture.to_owned(), overlays: Vec::new() };
+    let tame = tag.get(&"Owner".into()).is_some();
+    match o.kind {
+        "minecraft:mooshroom" => {
+            if text(tag, "Type").as_deref() == Some("brown") {
+                look.texture = "entity/cow/mooshroom_brown".into();
+            }
+        }
+        "minecraft:sheep" => {
+            if number(tag, "Sheared").unwrap_or(0) == 0 {
+                let colour = dye(number(tag, "Color"), 0);
+                look.overlays.push(("minecraft:sheep#wool".into(), "entity/sheep/sheep_wool".into(), colour));
+            }
+        }
+        "minecraft:wolf" => {
+            let variant = text(tag, "variant").unwrap_or_else(|| "pale".into());
+            let file = WOLVES.iter().find(|(v, _)| *v == variant).map_or("wolf", |(_, f)| f);
+            let state = if tame {
+                "_tame"
+            } else if tag.get(&"angry_at".into()).is_some() {
+                "_angry"
+            } else {
+                ""
+            };
+            look.texture = format!("entity/wolf/{file}{state}");
+            if tame {
+                look.overlays.push(("minecraft:wolf#main".into(), "entity/wolf/wolf_collar".into(), dye(number(tag, "CollarColor"), 14)));
+            }
+        }
+        "minecraft:cat" => {
+            let variant = text(tag, "variant").unwrap_or_else(|| "tabby".into());
+            look.texture = format!("entity/cat/cat_{variant}");
+            if tame {
+                look.overlays.push(("minecraft:cat#collar".into(), "entity/cat/cat_collar".into(), dye(number(tag, "CollarColor"), 14)));
+            }
+        }
+        "minecraft:rabbit" => {
+            let name = match number(tag, "RabbitType").unwrap_or(0) {
+                1 => "white",
+                2 => "black",
+                3 => "white_splotched",
+                4 => "gold",
+                5 => "salt",
+                99 => "caerbannog",
+                _ => "brown",
+            };
+            look.texture = format!("entity/rabbit/rabbit_{name}");
+        }
+        "minecraft:drowned" => {
+            look.overlays.push(("minecraft:drowned#outer".into(), "entity/zombie/drowned_outer_layer".into(), 0xFF_FF_FF));
+        }
+        "minecraft:villager" => {
+            let t = villager_type(tag);
+            look.overlays.push((o.layer.into(), format!("entity/villager/type/{t}"), 0xFF_FF_FF));
+        }
+        "minecraft:zombie_villager" => {
+            let t = villager_type(tag);
+            look.overlays.push((o.layer.into(), format!("entity/zombie_villager/type/{t}"), 0xFF_FF_FF));
+        }
+        "minecraft:horse" => {
+            let v = number(tag, "Variant").unwrap_or(0);
+            let colour = HORSE_COLOURS[((v & 0xFF) as usize).min(6)];
+            look.texture = format!("entity/horse/horse_{colour}");
+            let mark = MARKINGS[(((v >> 8) & 0xFF) as usize).min(4)];
+            if !mark.is_empty() {
+                look.overlays.push((o.layer.into(), format!("entity/horse/horse_markings_{mark}"), 0xFF_FF_FF));
+            }
+        }
+        _ => {}
+    }
+    look
+}
+
+/// On the server, a few times a second: what each baby of these kinds looks like.
+pub fn scan(host: &mut dyn Host, dimension: &str) {
+    let mut seen = HashSet::new();
+    let mut found = Vec::new();
+    for (id, kind, _) in host.level_entities(dimension) {
+        let kind = kind.to_string();
+        let Some(o) = old(&kind) else { continue };
+        let Some(entity) = host.entity(id) else { continue };
+        let Some(tag) = host.entity_nbt(entity) else { continue };
+        if !is_baby(&tag) {
+            continue;
+        }
+        seen.insert(id);
+        found.push((id, look_of(o, &tag)));
+    }
+    if let Ok(mut looks) = LOOKS.lock() {
+        looks.retain(|id, _| seen.contains(id));
+        looks.extend(found);
+    }
+}
+
+/// The grown models, baked once.
+static BAKED: LazyLock<Mutex<HashMap<String, ModelPart>>> = LazyLock::new(Default::default);
+
+fn set(root: &mut ModelPart, name: &str, f: impl FnOnce(&mut ModelPart)) {
+    if let Some(p) = root.get_child_mut(name) {
+        f(p);
+    }
+}
+
+/// The setupAnim of each kind of model, by its parts' names.
+fn pose(root: &mut ModelPart, anim: Anim, mob: &horizon_client::mod_api::NativeMobRender<'_>) {
+    root.reset_all_poses();
+    let (yaw, pitch) = (mob.head_yaw.to_radians(), mob.pitch.to_radians());
+    let pos = mob.walk_position * 0.6662;
+    let speed = mob.walk_speed;
+    let head = |root: &mut ModelPart| {
+        set(root, "head", |p| {
+            p.x_rot = pitch;
+            p.y_rot = yaw;
+        })
+    };
+    match anim {
+        Anim::Quadruped => {
+            head(root);
+            let swing = pos.cos() * 1.4 * speed;
+            for (name, sign) in [("right_hind_leg", 1.0), ("left_front_leg", 1.0), ("left_hind_leg", -1.0), ("right_front_leg", -1.0)] {
+                set(root, name, |p| p.x_rot = swing * sign);
+            }
+        }
+        Anim::Chicken => {
+            head(root);
+            let swing = pos.cos() * 1.4 * speed;
+            set(root, "right_leg", |p| p.x_rot = swing);
+            set(root, "left_leg", |p| p.x_rot = -swing);
+            let flap = if mob.on_ground { 0.0 } else { ((mob.age * 1.3).sin() + 1.0) * 0.6 };
+            set(root, "right_wing", |p| p.z_rot = flap);
+            set(root, "left_wing", |p| p.z_rot = -flap);
+        }
+        Anim::Zombie | Anim::Humanoid | Anim::Villager => {
+            head(root);
+            let legs = if anim == Anim::Villager { 0.5 } else { 1.0 };
+            set(root, "right_leg", |p| p.x_rot = pos.cos() * 1.4 * speed * legs);
+            set(root, "left_leg", |p| p.x_rot = (pos + PI).cos() * 1.4 * speed * legs);
+            match anim {
+                // AnimationUtils.animateZombieArms: held out, bobbing.
+                Anim::Zombie => {
+                    let bob = (mob.age * 0.067).sin() * 0.05;
+                    set(root, "right_arm", |p| p.x_rot = -PI / 2.25 + bob);
+                    set(root, "left_arm", |p| p.x_rot = -PI / 2.25 - bob);
+                }
+                Anim::Humanoid => {
+                    set(root, "right_arm", |p| p.x_rot = (pos + PI).cos() * speed);
+                    set(root, "left_arm", |p| p.x_rot = pos.cos() * speed);
+                }
+                _ => {}
+            }
+        }
+        Anim::Horse => {
+            set(root, "head_parts", |p| p.x_rot = PI / 6.0 + pitch);
+            let swing = pos.cos() * 1.4 * speed;
+            for (name, sign) in [("right_hind_leg", 1.0), ("left_front_leg", 1.0), ("left_hind_leg", -1.0), ("right_front_leg", -1.0)] {
+                set(root, name, |p| p.x_rot = swing * sign);
+            }
+        }
+        Anim::Still => {}
+    }
+}
+
+/// Shows only the head parts (`head`), or only the rest, anywhere in the tree: a head inside the
+/// body (the rabbit's) draws alone in the head pass, its parents' own faces left out.
+fn show(part: &mut ModelPart, parts: &[&str], head: bool, in_head: bool) {
+    for (name, child) in part.children_mut() {
+        let h = in_head || parts.iter().any(|p| name == *p);
+        if head {
+            child.visible = true;
+            child.skip_draw = !h;
+        } else {
+            child.visible = !h;
+        }
+        show(child, parts, head, h);
+    }
+}
+
+/// Each part's `skip_draw`, in the tree's order, to put back after a pass changed them.
+fn skips(part: &mut ModelPart, out: &mut Vec<bool>) {
+    for (_, child) in part.children_mut() {
+        out.push(child.skip_draw);
+        skips(child, out);
+    }
+}
+
+fn restore(part: &mut ModelPart, flags: &mut impl Iterator<Item = bool>) {
+    for (_, child) in part.children_mut() {
+        child.visible = true;
+        child.skip_draw = flags.next().unwrap_or(false);
+        restore(child, flags);
+    }
+}
+
+/// Draws a baby of one of these kinds the old way. Continue for anything else.
+pub fn draw(host: &dyn Host, event: &mut MobSubmitEvent<'_>) -> Flow {
+    let mob = event.mob;
+    if !mob.baby {
+        return Flow::Continue;
+    }
+    let Some(o) = old(mob.kind) else { return Flow::Continue };
+    let look = LOOKS.lock().ok().and_then(|l| l.get(&mob.id).cloned()).unwrap_or_else(|| Look {
+        texture: o.texture.to_owned(),
+        overlays: Vec::new(),
+    });
+    // The model and its overlays' models, each with its texture and tint.
+    let mut passes: Vec<(String, String, u32)> = vec![(o.layer.to_owned(), look.texture.clone(), 0xFF_FF_FF)];
+    passes.extend(look.overlays.iter().cloned());
+    let Ok(mut baked) = BAKED.lock() else { return Flow::Continue };
+    for (layer, _, _) in &passes {
+        if !baked.contains_key(layer) {
+            let Some(part) = host.bake_layer(layer) else {
+                if layer == o.layer {
+                    return Flow::Continue;
+                }
+                continue;
+            };
+            baked.insert(layer.clone(), part);
+        }
+    }
+    let hurt = mob.hurt_time > 0 || mob.death_time > 0;
+    let draw = &mut *event.draw;
+    draw.push();
+    if let Shape::Whole(s) = o.shape {
+        draw.scale([s, s, s]);
+    }
+    draw.scale([1.0, -1.0, -1.0]);
+    draw.translate([0.0, -1.501, 0.0]);
+    for (layer, texture, tint) in &passes {
+        let Some(root) = baked.get_mut(layer) else { continue };
+        pose(root, o.anim, mob);
+        let tint = if hurt { tint & 0xFF_99_99 } else { *tint };
+        match o.shape {
+            Shape::Whole(_) => {
+                host.draw_model_part(draw, root, texture, tint);
+            }
+            Shape::Split { head_scale, head, body_scale, body_y } => {
+                // AgeableListModel.renderToBuffer for the young.
+                let mut flags = Vec::new();
+                skips(root, &mut flags);
+                show(root, o.head, true, false);
+                draw.push();
+                draw.scale([head_scale, head_scale, head_scale]);
+                draw.translate([0.0, head[0] / 16.0, head[1] / 16.0]);
+                host.draw_model_part(draw, root, texture, tint);
+                draw.pop();
+                restore(root, &mut flags.iter().copied());
+                show(root, o.head, false, false);
+                draw.push();
+                draw.scale([body_scale, body_scale, body_scale]);
+                draw.translate([0.0, body_y / 16.0, 0.0]);
+                host.draw_model_part(draw, root, texture, tint);
+                draw.pop();
+                restore(root, &mut flags.iter().copied());
+            }
+        }
+    }
+    draw.pop();
+    Flow::Cancel
+}

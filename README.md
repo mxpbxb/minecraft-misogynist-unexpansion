@@ -11,8 +11,13 @@ A [Horizon](https://playhorizon.dev) mod that takes the game back towards how it
   already in a world are gone when they load.
 - **The original farm animals.** Cows, pigs and chickens only come in their original look: no cold
   or warm ones (no black chickens or light brown cows), old ones included.
-- **The old babies.** Calves, piglets and chicks are drawn as before: the grown model and texture,
-  the body half size and the head kept big.
+- **The old babies.** Every baby the redesign changed is drawn as before, with the grown model,
+  textures and overlays at the old sizes: villagers (half size, in their biome's clothes), zombies,
+  husks, drowned, zombie villagers, piglins and zombified piglins (big head, small body), cows,
+  mooshrooms, pigs, sheep (with their wool's colour), chickens, wolves (variant, collar), cats
+  (variant, collar), ocelots, rabbits, hoglins, zoglins, horses (colour and markings), donkeys,
+  mules, skeleton and zombie horses, squid and glow squid. The mobs this mod removes by default keep
+  the new look if you bring them back.
 - **What the removed mobs gave, made another way:**
 
   | Item | How |
@@ -53,7 +58,7 @@ Install both, then press Build in the launcher:
   Dolphin's Grace is crafted.
 - Renaming vanilla items everywhere: fish scales and fish eggs are named in their tooltips; the
   name shown above the hotbar is still vanilla's.
-- Old babies for sheep, mooshrooms, wolves, cats and the rest: only calves, piglets and chicks so far.
+- Babies are drawn without held items or armour, and a sitting or lying wolf or cat baby stands.
 
 ## Building
 
