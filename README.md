@@ -18,6 +18,8 @@ A [Horizon](https://playhorizon.dev) mod that takes the game back towards how it
   (variant, collar), ocelots, rabbits, hoglins, zoglins, horses (colour and markings), donkeys,
   mules, skeleton and zombie horses, squid and glow squid. The mobs this mod removes by default keep
   the new look if you bring them back.
+- **Fishing as it was.** Treasure can be caught anywhere again, not only in open water (a pond fishes
+  like the ocean), and tropical fish come 7 times in 100 instead of 2.
 - **What the removed mobs gave, made another way:**
 
   | Item | How |

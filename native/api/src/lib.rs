@@ -8,6 +8,8 @@
 //!   old sizes (`babies.rs`).
 //! - Tropical fish drop fish scales (turtle scutes), nine times in ten; turtle scutes and eggs are
 //!   called fish scales and fish eggs.
+//! - Fishing as before the open-water rule: treasure anywhere, a pond as an ocean; and tropical fish
+//!   five in a hundred more often (7, out of cod's share).
 //!
 //! The recipes and the Potion of Dolphin's Grace are the content mod `misogynist_unexpansion`.
 
@@ -18,8 +20,8 @@ use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::{LazyLock, Mutex};
 
 use horizon_client::mod_api::{
-    EntityJoinLevelEvent, Flow, Hooks, Host, ItemStack, LevelTickPostEvent, LootDropsEvent, MobSubmitEvent, Tag,
-    Text, TooltipEvent,
+    EntityJoinLevelEvent, Flow, Hooks, Host, ItemStack, LevelTickPostEvent, LootDropsEvent, LootTableLoadEvent,
+    MobSubmitEvent, Tag, Text, TooltipEvent, serde_json::Value,
 };
 
 pub fn hooks() -> Box<dyn Hooks> {
@@ -53,7 +55,64 @@ fn has_variant(kind: &str) -> bool {
 /// How often tropical fish drop fish scales, in 100.
 const SCALES_CHANCE: u64 = 90;
 
+/// Takes out every loot condition that asks for open water (`FishingHook.isOpenWaterFishing`):
+/// treasure is caught anywhere again, as before 1.16.
+fn drop_open_water(v: &mut Value) -> usize {
+    let open_water = |c: &Value| c.to_string().contains("in_open_water");
+    let mut dropped = 0;
+    match v {
+        Value::Object(map) => {
+            if map.get("condition").is_some_and(open_water) {
+                map.remove("condition");
+                dropped += 1;
+            }
+            if let Some(Value::Array(list)) = map.get_mut("conditions") {
+                let before = list.len();
+                list.retain(|c| !open_water(c));
+                dropped += before - list.len();
+            }
+            for child in map.values_mut() {
+                dropped += drop_open_water(child);
+            }
+        }
+        Value::Array(list) => {
+            for child in list {
+                dropped += drop_open_water(child);
+            }
+        }
+        _ => {}
+    }
+    dropped
+}
+
+/// Tropical fish five in a hundred more often, out of cod's share: 7 and 55, of 100.
+fn more_tropical_fish(v: &mut Value) {
+    let Some(pools) = v.get_mut("pools").and_then(Value::as_array_mut) else { return };
+    for pool in pools {
+        let Some(entries) = pool.get_mut("entries").and_then(Value::as_array_mut) else { continue };
+        for e in entries {
+            let weight = match e.get("name").and_then(Value::as_str) {
+                Some("minecraft:tropical_fish") => 7,
+                Some("minecraft:cod") => 55,
+                _ => continue,
+            };
+            e["weight"] = Value::from(weight);
+        }
+    }
+}
+
 impl Hooks for Mod {
+    /// Fishing as it was: no open-water rule, and more tropical fish.
+    fn loot_table_load(&self, event: &mut LootTableLoadEvent<'_>) {
+        match event.id {
+            "minecraft:gameplay/fishing" => {
+                drop_open_water(event.table);
+            }
+            "minecraft:gameplay/fishing/fish" => more_tropical_fish(event.table),
+            _ => {}
+        }
+    }
+
     /// A removed mob never joins: not spawned, not loaded. A cow, pig or chicken that joins is set
     /// to its temperate variant on the next tick.
     fn entity_join_level(&self, host: &mut dyn Host, event: &mut EntityJoinLevelEvent<'_>) -> Flow {
@@ -115,5 +174,33 @@ impl Hooks for Mod {
 
     fn mob_submit(&self, host: &dyn Host, event: &mut MobSubmitEvent<'_>) -> Flow {
         babies::draw(host, event)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Vanilla's tables as the game loads them.
+    const FISHING: &str = r#"{"type": "minecraft:fishing", "pools": [{"entries": [{"type": "minecraft:loot_table", "quality": -2, "value": "minecraft:gameplay/fishing/junk", "weight": 10}, {"type": "minecraft:loot_table", "condition": {"type": "minecraft:entity_properties", "entity": "this", "predicate": {"minecraft:type_specific/fishing_hook": {"in_open_water": true}}}, "quality": 2, "value": "minecraft:gameplay/fishing/treasure", "weight": 5}, {"type": "minecraft:loot_table", "quality": -1, "value": "minecraft:gameplay/fishing/fish", "weight": 85}], "rolls": 1}]}"#;
+    const FISH: &str = r#"{"pools": [{"entries": [{"type": "minecraft:item", "name": "minecraft:cod", "weight": 60}, {"type": "minecraft:item", "name": "minecraft:salmon", "weight": 25}, {"type": "minecraft:item", "name": "minecraft:tropical_fish", "weight": 2}, {"type": "minecraft:item", "name": "minecraft:pufferfish", "weight": 13}], "rolls": 1}]}"#;
+
+    #[test]
+    fn treasure_no_longer_needs_open_water() {
+        let mut t: Value = horizon_client::mod_api::serde_json::from_str(FISHING).unwrap();
+        assert_eq!(drop_open_water(&mut t), 1);
+        assert!(!t.to_string().contains("in_open_water"));
+        // The treasure entry itself stays, at its weight.
+        assert!(t.to_string().contains("gameplay/fishing/treasure"));
+    }
+
+    #[test]
+    fn tropical_fish_come_five_in_a_hundred_more_often() {
+        let mut t: Value = horizon_client::mod_api::serde_json::from_str(FISH).unwrap();
+        more_tropical_fish(&mut t);
+        let entries = t["pools"][0]["entries"].as_array().unwrap();
+        let w = |n: &str| entries.iter().find(|e| e["name"] == n).unwrap()["weight"].as_i64().unwrap();
+        assert_eq!((w("minecraft:tropical_fish"), w("minecraft:cod")), (7, 55));
+        assert_eq!(entries.iter().map(|e| e["weight"].as_i64().unwrap()).sum::<i64>(), 100);
     }
 }
