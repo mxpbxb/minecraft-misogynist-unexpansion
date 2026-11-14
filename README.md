@@ -9,8 +9,9 @@ A [Horizon](https://playhorizon.dev) mod that takes the game back towards how it
   striders, camel husks, armadillos, axolotls, happy ghasts, sulfur cubes, nautiluses, trader llamas,
   zombie nautiluses, bogged, parched, breezes, creakings, tadpoles and goats. None spawn, and those
   already in a world are gone when they load.
-- **The original farm animals.** Cows, pigs and chickens only come in their original look: no cold
-  or warm ones (no black chickens or light brown cows), old ones included.
+- **No new looks for old mobs.** Cows, pigs and chickens only come in their original look (no cold
+  or warm ones), and wolves only as the original wolf with its classic sounds (none of the eight
+  newer wolves). Old ones are changed back too, checked every two seconds.
 - **The old babies.** Every baby the redesign changed is drawn as before, with the grown model,
   textures and overlays at the old sizes: villagers (half size, in their biome's clothes), zombies,
   husks, drowned, zombie villagers, piglins and zombified piglins (big head, small body), cows,
@@ -20,6 +21,14 @@ A [Horizon](https://playhorizon.dev) mod that takes the game back towards how it
   the new look if you bring them back.
 - **Fishing as it was.** Treasure can be caught anywhere again, not only in open water (a pond fishes
   like the ocean), and tropical fish come 7 times in 100 instead of 2.
+- **No sculk in new terrain.** Sculk patches (the deep dark's sculk floors, sensors and shriekers)
+  and loose sculk veins no longer generate; the sculk is crafted instead (below). Terrain already
+  generated keeps its sculk, and ancient city buildings still have the sculk built into them.
+- **Walk on powder snow.** Powder snow holds you up as if you wore leather boots; falling onto it
+  from high up still sinks you in.
+- **Right-click harvesting.** Right-clicking a fully grown crop (wheat, carrots, potatoes,
+  beetroots, nether wart, cocoa) harvests it and replants it: it drops what breaking it would, less
+  the one item it is replanted with (no Fortune). Sneak to place blocks on crops as usual.
 - **Key Binds search by key.** The search box on the Key Binds screen finds a binding by the key
   it is on as well as by its name: type `r`, `shift` or `mouse` to see what uses it. The idea is
   [Controlling](https://github.com/jaredlll08/Controlling)'s (Jaredlll08, MIT), written anew for
@@ -37,6 +46,15 @@ A [Horizon](https://playhorizon.dev) mod that takes the game back towards how it
   | Potion of Dolphin's Grace (3:00) | glass bottle, cod and prismarine crystals (shapeless) |
   | Fish eggs (turtle eggs) | nine tropical fish |
   | Fish scales (turtle scutes) | dropped by tropical fish, nine times in ten |
+  | Sculk | dirt and a bottle o' enchanting (shapeless) |
+  | 4 sculk veins | one sculk |
+  | Sculk sensor | `V V` / `SRS`: two sculk veins over sculk, redstone, sculk |
+  | Sculk catalyst | `BXB` / `SSS` / `SSS`: bone, bottle o' enchanting, bone over six sculk |
+  | Sculk shrieker | `B B` / `SXS` / `SSS`: two bones, then sculk, bottle o' enchanting, sculk, over three sculk (never summons a warden) |
+  | Bottle o' enchanting | any mob head or skull: skeleton, wither skeleton, zombie, creeper, piglin or dragon |
+
+  The sculk and bottle o' enchanting recipes come from the native mod, so the content mod's file
+  stays the same as servers that check it know.
 
 ## Choosing which mobs go
 
@@ -56,7 +74,7 @@ Install both, then press Build in the launcher:
 
 - **`misogynist_unexpansion_native`** (`.hnmod`): the code. A native mod: it runs with your
   account's permissions, so the launcher asks before building it.
-- **`misogynist_unexpansion`** (`.hmod`): the recipes and the potion.
+- **`misogynist_unexpansion`** (`.hmod`): the first recipes and the potion.
 
 ## Not possible yet
 

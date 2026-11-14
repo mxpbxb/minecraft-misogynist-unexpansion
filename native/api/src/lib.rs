@@ -2,7 +2,9 @@
 //!
 //! - The mobs in `removed_mobs.cfg` (dolphins, foxes, bees, goats and the rest of the newer ones by
 //!   default) never join a world: none spawn, and those already in one are gone when they load.
-//! - Cows, pigs and chickens come only in their original (temperate) look, old ones included.
+//! - No new looks for old mobs: cows, pigs and chickens only temperate, wolves only the original
+//!   (pale) wolf with its classic sounds, old ones included (checked every two seconds).
+//! - Powder snow is walked on, leather boots or not (the mixin `powder-snow-walk`).
 //! - Babies look as they did before the baby redesign: villagers, zombies, piglins, hoglins, farm
 //!   animals, wolves, cats, rabbits, horses and squid drawn with the grown model and textures at the
 //!   old sizes (`babies.rs`).
@@ -10,18 +12,24 @@
 //!   called fish scales and fish eggs.
 //! - Fishing as before the open-water rule: treasure anywhere, a pond as an ocean; and tropical fish
 //!   five in a hundred more often (7, out of cod's share).
+//! - No sculk patches or sculk veins in new terrain (the mixins `no-sculk-placed` and
+//!   `no-sculk-feature`); sculk is crafted instead, and a bottle o' enchanting from mob heads
+//!   (`farming.rs`).
+//! - Right-clicking a grown crop harvests it and replants it (`farming.rs`).
 //!
-//! The recipes and the Potion of Dolphin's Grace are the content mod `misogynist_unexpansion`.
+//! The first recipes and the Potion of Dolphin's Grace are the content mod `misogynist_unexpansion`;
+//! the sculk ones come from this native half, so that content file stays as servers know it.
 
 mod babies;
 mod config;
+mod farming;
 
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::{LazyLock, Mutex};
 
 use horizon_client::mod_api::{
-    EntityJoinLevelEvent, Flow, Hooks, Host, ItemStack, LevelTickPostEvent, LootDropsEvent, LootTableLoadEvent,
-    MobSubmitEvent, Tag, Text, TooltipEvent, serde_json::Value,
+    DataPackFilesEvent, EntityJoinLevelEvent, Flow, Hooks, Host, ItemStack, LevelTickPostEvent, LootDropsEvent,
+    LootTableLoadEvent, MobSubmitEvent, RightClickBlockEvent, Tag, Text, TooltipEvent, serde_json::Value,
 };
 
 pub fn hooks() -> Box<dyn Hooks> {
@@ -32,7 +40,7 @@ struct Mod;
 
 static CONFIG: LazyLock<Mutex<config::Loaded>> = LazyLock::new(|| Mutex::new(config::Loaded::new()));
 /// Cows, pigs and chickens that just joined a world, to set to the temperate variant next tick.
-static TO_REVERT: Mutex<Vec<u32>> = Mutex::new(Vec::new());
+static TO_REVERT: Mutex<Vec<(u32, String)>> = Mutex::new(Vec::new());
 /// Ticks between reads of the babies' looks.
 static SCAN: AtomicU32 = AtomicU32::new(0);
 static ROLL: AtomicU64 = AtomicU64::new(0x9E37_79B9_7F4A_7C15);
@@ -47,9 +55,38 @@ fn percent() -> u64 {
     x % 100
 }
 
-/// The farm animals that have variants: only the temperate one is kept.
+/// The mobs that have newer looks: only the original one is kept.
 fn has_variant(kind: &str) -> bool {
-    matches!(kind, "minecraft:cow" | "minecraft:pig" | "minecraft:chicken")
+    original_look(kind).is_some()
+}
+
+/// The one look a mob keeps, as (key, value) pairs of its saved data: the newer variants are gone.
+fn original_look(kind: &str) -> Option<&'static [(&'static str, &'static str)]> {
+    match kind {
+        "minecraft:cow" | "minecraft:pig" | "minecraft:chicken" => Some(&[("variant", "minecraft:temperate")]),
+        "minecraft:wolf" => Some(&[("variant", "minecraft:pale"), ("sound_variant", "minecraft:classic")]),
+        _ => None,
+    }
+}
+
+/// A mob with a newer look set to its original one. A key it doesn't save (yet) is left alone.
+fn revert_look(host: &mut dyn Host, id: u32, kind: &str) {
+    let Some(look) = original_look(kind) else { return };
+    let Some(entity) = host.entity(id) else { return };
+    let Some(tag) = host.entity_nbt(entity) else { return };
+    let mut change = horizon_client::mod_api::Compound::default();
+    for &(key, want) in look {
+        let now = match tag.get(&key.into()) {
+            Some(Tag::String(v)) => String::from_utf16_lossy(&v.0),
+            _ => continue,
+        };
+        if now != want {
+            change.insert(key.into(), Tag::String(want.into()));
+        }
+    }
+    if !change.is_empty() {
+        host.entity_merge_nbt(entity, change);
+    }
 }
 
 /// How often tropical fish drop fish scales, in 100.
@@ -102,6 +139,16 @@ fn more_tropical_fish(v: &mut Value) {
 }
 
 impl Hooks for Mod {
+    /// The sculk and bottle o' enchanting recipes, into the data the server loads.
+    fn data_pack_files(&self, _: &dyn Host, event: &mut DataPackFilesEvent<'_>) {
+        event.files.extend(farming::recipes());
+    }
+
+    /// A grown crop right-clicked: harvested and replanted.
+    fn right_click_block(&self, host: &mut dyn Host, event: &mut RightClickBlockEvent) -> Flow {
+        farming::right_click(host, event.pos, &mut percent)
+    }
+
     /// Fishing as it was: no open-water rule, and more tropical fish.
     fn loot_table_load(&self, event: &mut LootTableLoadEvent<'_>) {
         match event.id {
@@ -129,23 +176,31 @@ impl Hooks for Mod {
         if has_variant(event.kind)
             && let Ok(mut v) = TO_REVERT.lock()
         {
-            v.push(event.entity);
+            v.push((event.entity, event.kind.to_string()));
         }
         Flow::Continue
     }
 
     fn level_tick_post(&self, host: &mut dyn Host, event: &mut LevelTickPostEvent<'_>) {
-        if SCAN.fetch_add(1, Ordering::Relaxed) % 10 == 0 {
+        let n = SCAN.fetch_add(1, Ordering::Relaxed);
+        if n % 10 == 0 {
             babies::scan(host, event.dimension);
+        }
+        // Every mob with a newer look, every two seconds: those given one after they joined (their
+        // biome's variant picked once they were in the world) as well.
+        if n % 40 == 5 {
+            for (id, kind, _) in host.level_entities(event.dimension) {
+                if has_variant(&kind) {
+                    revert_look(host, id, &kind);
+                }
+            }
         }
         if let Ok(mut c) = CONFIG.lock() {
             c.refresh(|| host.config_dir().ok());
         }
-        let ids: Vec<u32> = TO_REVERT.lock().map(|mut v| std::mem::take(&mut *v)).unwrap_or_default();
-        for id in ids {
-            if let Some(entity) = host.entity(id) {
-                host.entity_merge_nbt(entity, [("variant".into(), Tag::String("minecraft:temperate".into()))].into());
-            }
+        let ids: Vec<(u32, String)> = TO_REVERT.lock().map(|mut v| std::mem::take(&mut *v)).unwrap_or_default();
+        for (id, kind) in ids {
+            revert_look(host, id, &kind);
         }
     }
 

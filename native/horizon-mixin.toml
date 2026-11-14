@@ -3,7 +3,7 @@
 # The recipes and items are the content mod `misogynist_unexpansion`.
 [mod]
 id = "misogynist_unexpansion_native"
-version = "0.4.0"
+version = "0.6.0"
 
 [compatibility]
 horizon_revision = "1fe4e6fe0252c44efd41d882daee0468389f7d5f"
@@ -39,4 +39,48 @@ helper = "keybind_name.rs"
 bindings = [
   { name = "key", ty = "&str", value = "key" },
   { name = "value", ty = "String", value = "$value" },
+]
+
+# Powder snow is walked on, leather boots or not: its collision asks whether the player wears them.
+[[injection]]
+id = "powder-snow-walk"
+kind = "RETURN"
+target = "horizon_client_lib::motion::PlayerMotion::powder_snow_subject"
+helper = "powder_snow_walk.rs"
+bindings = [
+  { name = "value", ty = "crate::collisions::PowderSnowSubject", value = "$value" },
+]
+
+# No sculk patches or loose sculk veins in new terrain. Each feature tree the world generator
+# resolves is expanded, its sculk patches given no rounds of spreading or growth and its sculk-vein
+# growths allowed on no face, then decoded: neither places anything.
+[[module]]
+id = "no-sculk-edit"
+file = "crates/horizon-world/src/lib.rs"
+name = "no_sculk"
+visibility = "pub(crate)"
+source = "no_sculk_edit.rs"
+
+[[injection]]
+id = "no-sculk-placed"
+kind = "HEAD"
+cancellable = true
+target = "horizon_world::worldgen::feature_catalog::FeatureCatalog::placed_with_optional_blocks"
+helper = "no_sculk_placed.rs"
+bindings = [
+  { name = "catalog", ty = "&FeatureCatalog", value = "&*self" },
+  { name = "json", ty = "&str", value = "json" },
+  { name = "blocks", ty = "Option<&FeatureBlockBindings<'_>>", value = "blocks" },
+]
+
+[[injection]]
+id = "no-sculk-feature"
+kind = "HEAD"
+cancellable = true
+target = "horizon_world::worldgen::feature_catalog::FeatureCatalog::feature_with_optional_blocks"
+helper = "no_sculk_feature.rs"
+bindings = [
+  { name = "catalog", ty = "&FeatureCatalog", value = "&*self" },
+  { name = "json", ty = "&str", value = "json" },
+  { name = "blocks", ty = "Option<&FeatureBlockBindings<'_>>", value = "blocks" },
 ]
