@@ -29,6 +29,9 @@ A [Horizon](https://playhorizon.dev) mod that takes the game back towards how it
   stay). Make them in a furnace instead: leaf litter from any leaves, wildflowers from a flower
   (dandelion, poppy, blue orchid, allium, azure bluet, red, orange or white tulip, oxeye daisy,
   cornflower, lily of the valley), pink petals from a pink tulip.
+- **Deepslate digs faster.** Only 15% slower than stone instead of twice as slow; cobbled
+  deepslate likewise against cobblestone, deepslate ores against the stone ores, and polished
+  deepslate, its bricks and tiles against stone bricks.
 - **Walk on powder snow.** Powder snow holds you up as if you wore leather boots; falling onto it
   from high up still sinks you in.
 - **Right-click harvesting.** Right-clicking a fully grown crop (wheat, carrots, potatoes,

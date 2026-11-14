@@ -16,6 +16,8 @@
 //!   `no-sculk-feature`); sculk is crafted instead, and a bottle o' enchanting from mob heads
 //!   (`farming.rs`).
 //! - Right-clicking a grown crop harvests it and replants it (`farming.rs`).
+//! - Deepslate digs only 15% slower than stone (cobbled deepslate than cobblestone, its ores than
+//!   theirs), not twice as slow.
 //! - No leaf litter, wildflowers or pink petals on the ground: none in new terrain (the same
 //!   mixins), and those already there gone as each chunk loads, once; they are smelted instead,
 //!   from leaves, flowers and pink tulips (`ground.rs`).
@@ -32,7 +34,7 @@ use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::{LazyLock, Mutex};
 
 use horizon_client::mod_api::{
-    ChunkLoadEvent, DataPackFilesEvent, EntityJoinLevelEvent, Flow, Hooks, Host, ItemStack, LevelTickPostEvent, LootDropsEvent,
+    BreakSpeedEvent, ChunkLoadEvent, DataPackFilesEvent, EntityJoinLevelEvent, Flow, Hooks, Host, ItemStack, LevelTickPostEvent, LootDropsEvent,
     LootTableLoadEvent, MobSubmitEvent, RightClickBlockEvent, Tag, Text, TooltipEvent, serde_json::Value,
 };
 
@@ -91,6 +93,26 @@ fn revert_look(host: &mut dyn Host, id: u32, kind: &str) {
     if !change.is_empty() {
         host.entity_merge_nbt(entity, change);
     }
+}
+
+/// How much faster deepslate digs: its hardness made 15% more than its stone counterpart's
+/// (vanilla: deepslate 3, stone 1.5; cobbled deepslate 3.5, cobblestone 2; deepslate ores 4.5,
+/// ores 3; polished deepslate, its bricks and tiles 3.5, stone bricks 1.5). None for anything else.
+fn deepslate_speedup(block: &str) -> Option<f32> {
+    let name = block.strip_prefix("minecraft:")?;
+    if !name.contains("deepslate") || name.starts_with("infested") || name.starts_with("reinforced") {
+        return None;
+    }
+    let (hardness, stone) = if name == "deepslate" {
+        (3.0, 1.5)
+    } else if name.ends_with("_ore") {
+        (4.5, 3.0)
+    } else if name.starts_with("cobbled_deepslate") {
+        (3.5, 2.0)
+    } else {
+        (3.5, 1.5)
+    };
+    Some(hardness / (stone * 1.15))
 }
 
 /// How often tropical fish drop fish scales, in 100.
@@ -152,6 +174,13 @@ impl Hooks for Mod {
     /// A grown crop right-clicked: harvested and replanted.
     fn right_click_block(&self, host: &mut dyn Host, event: &mut RightClickBlockEvent) -> Flow {
         farming::right_click(host, event.pos, &mut percent)
+    }
+
+    /// Deepslate digs only 15% slower than the stone it stands for. Asked on both sides, alike.
+    fn break_speed(&self, host: &dyn Host, event: &mut BreakSpeedEvent) {
+        if let Some(faster) = deepslate_speedup(&host.block(event.pos)) {
+            event.speed *= faster;
+        }
     }
 
     /// Fishing as it was: no open-water rule, and more tropical fish.
@@ -250,6 +279,19 @@ mod tests {
     /// Vanilla's tables as the game loads them.
     const FISHING: &str = r#"{"type": "minecraft:fishing", "pools": [{"entries": [{"type": "minecraft:loot_table", "quality": -2, "value": "minecraft:gameplay/fishing/junk", "weight": 10}, {"type": "minecraft:loot_table", "condition": {"type": "minecraft:entity_properties", "entity": "this", "predicate": {"minecraft:type_specific/fishing_hook": {"in_open_water": true}}}, "quality": 2, "value": "minecraft:gameplay/fishing/treasure", "weight": 5}, {"type": "minecraft:loot_table", "quality": -1, "value": "minecraft:gameplay/fishing/fish", "weight": 85}], "rolls": 1}]}"#;
     const FISH: &str = r#"{"pools": [{"entries": [{"type": "minecraft:item", "name": "minecraft:cod", "weight": 60}, {"type": "minecraft:item", "name": "minecraft:salmon", "weight": 25}, {"type": "minecraft:item", "name": "minecraft:tropical_fish", "weight": 2}, {"type": "minecraft:item", "name": "minecraft:pufferfish", "weight": 13}], "rolls": 1}]}"#;
+
+    #[test]
+    fn deepslate_digs_fifteen_percent_slower_than_stone() {
+        // Effective hardness: vanilla's divided by the speed-up.
+        let eff = |b: &str, h: f32| h / deepslate_speedup(b).unwrap();
+        assert!((eff("minecraft:deepslate", 3.0) - 1.725).abs() < 1e-4);
+        assert!((eff("minecraft:cobbled_deepslate", 3.5) - 2.3).abs() < 1e-4);
+        assert!((eff("minecraft:deepslate_diamond_ore", 4.5) - 3.45).abs() < 1e-4);
+        assert!((eff("minecraft:deepslate_bricks", 3.5) - 1.725).abs() < 1e-4);
+        assert_eq!(deepslate_speedup("minecraft:stone"), None);
+        assert_eq!(deepslate_speedup("minecraft:infested_deepslate"), None);
+        assert_eq!(deepslate_speedup("minecraft:reinforced_deepslate"), None);
+    }
 
     #[test]
     fn treasure_no_longer_needs_open_water() {
