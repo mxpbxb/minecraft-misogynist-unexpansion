@@ -3,7 +3,7 @@
 # The recipes and items are the content mod `misogynist_unexpansion`.
 [mod]
 id = "misogynist_unexpansion_native"
-version = "0.6.0"
+version = "0.7.0"
 
 [compatibility]
 horizon_revision = "1fe4e6fe0252c44efd41d882daee0468389f7d5f"
@@ -51,7 +51,7 @@ bindings = [
   { name = "value", ty = "crate::collisions::PowderSnowSubject", value = "$value" },
 ]
 
-# No sculk patches or loose sculk veins in new terrain. Each feature tree the world generator
+# No sculk patches, loose sculk veins, leaf litter, wildflowers or pink petals in new terrain. Each feature tree the world generator
 # resolves is expanded, its sculk patches given no rounds of spreading or growth and its sculk-vein
 # growths allowed on no face, then decoded: neither places anything.
 [[module]]

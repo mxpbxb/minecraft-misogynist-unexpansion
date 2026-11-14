@@ -16,6 +16,9 @@
 //!   `no-sculk-feature`); sculk is crafted instead, and a bottle o' enchanting from mob heads
 //!   (`farming.rs`).
 //! - Right-clicking a grown crop harvests it and replants it (`farming.rs`).
+//! - No leaf litter, wildflowers or pink petals on the ground: none in new terrain (the same
+//!   mixins), and those already there gone as each chunk loads, once; they are smelted instead,
+//!   from leaves, flowers and pink tulips (`ground.rs`).
 //!
 //! The first recipes and the Potion of Dolphin's Grace are the content mod `misogynist_unexpansion`;
 //! the sculk ones come from this native half, so that content file stays as servers know it.
@@ -23,12 +26,13 @@
 mod babies;
 mod config;
 mod farming;
+mod ground;
 
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::{LazyLock, Mutex};
 
 use horizon_client::mod_api::{
-    DataPackFilesEvent, EntityJoinLevelEvent, Flow, Hooks, Host, ItemStack, LevelTickPostEvent, LootDropsEvent,
+    ChunkLoadEvent, DataPackFilesEvent, EntityJoinLevelEvent, Flow, Hooks, Host, ItemStack, LevelTickPostEvent, LootDropsEvent,
     LootTableLoadEvent, MobSubmitEvent, RightClickBlockEvent, Tag, Text, TooltipEvent, serde_json::Value,
 };
 
@@ -142,6 +146,7 @@ impl Hooks for Mod {
     /// The sculk and bottle o' enchanting recipes, into the data the server loads.
     fn data_pack_files(&self, _: &dyn Host, event: &mut DataPackFilesEvent<'_>) {
         event.files.extend(farming::recipes());
+        event.files.extend(ground::recipes());
     }
 
     /// A grown crop right-clicked: harvested and replanted.
@@ -181,7 +186,13 @@ impl Hooks for Mod {
         Flow::Continue
     }
 
+    /// A chunk loaded: cleared of leaf litter, wildflowers and pink petals on a later tick, once.
+    fn chunk_load(&self, _: &mut dyn Host, event: &mut ChunkLoadEvent<'_>) {
+        ground::loaded(event.dimension, event.chunk, event.new);
+    }
+
     fn level_tick_post(&self, host: &mut dyn Host, event: &mut LevelTickPostEvent<'_>) {
+        ground::tick(host, event.dimension);
         let n = SCAN.fetch_add(1, Ordering::Relaxed);
         if n % 10 == 0 {
             babies::scan(host, event.dimension);

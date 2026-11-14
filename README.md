@@ -24,6 +24,11 @@ A [Horizon](https://playhorizon.dev) mod that takes the game back towards how it
 - **No sculk in new terrain.** Sculk patches (the deep dark's sculk floors, sensors and shriekers)
   and loose sculk veins no longer generate; the sculk is crafted instead (below). Terrain already
   generated keeps its sculk, and ancient city buildings still have the sculk built into them.
+- **No leaf litter, wildflowers or pink petals on the ground.** None generate in new terrain, and
+  those already in a world disappear as each chunk loads (once per chunk, so any you place later
+  stay). Make them in a furnace instead: leaf litter from any leaves, wildflowers from a flower
+  (dandelion, poppy, blue orchid, allium, azure bluet, red, orange or white tulip, oxeye daisy,
+  cornflower, lily of the valley), pink petals from a pink tulip.
 - **Walk on powder snow.** Powder snow holds you up as if you wore leather boots; falling onto it
   from high up still sinks you in.
 - **Right-click harvesting.** Right-clicking a fully grown crop (wheat, carrots, potatoes,
