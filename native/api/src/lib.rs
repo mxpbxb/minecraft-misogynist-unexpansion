@@ -5,6 +5,7 @@
 //! - No new looks for old mobs: cows, pigs and chickens only temperate, wolves only the original
 //!   (pale) wolf, old ones included (checked every two seconds; the mixin `original-variants` draws
 //!   them so, even on a server without this mod).
+//! - Kelp only in warm, lukewarm and frozen oceans, in new terrain (the mixin `kelp-biomes`).
 //! - Animals make their classic sounds: no sound variants, and babies sound as they did (the mixin
 //!   `classic-sounds`).
 //! - Enchanting costs half the level it asks for: a level 30 enchantment takes 15 levels

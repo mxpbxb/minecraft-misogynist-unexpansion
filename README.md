@@ -29,6 +29,9 @@ A [Horizon](https://playhorizon.dev) mod that takes the game back towards how it
   stay). Make them in a furnace instead: leaf litter from any leaves, wildflowers from a flower
   (dandelion, poppy, blue orchid, allium, azure bluet, red, orange or white tulip, oxeye daisy,
   cornflower, lily of the valley), pink petals from a pink tulip.
+- **Kelp only in warm, lukewarm and frozen oceans.** None grows in ordinary or cold oceans any
+  more, and warm and frozen oceans (deep ones too) get it. Only newly generated ocean changes: kelp
+  already in the world stays.
 - **Old animal sounds.** Pigs, cows, chickens, wolves and cats make their classic sounds: no big or
   mini pigs, moody cows, picky chickens, royal cats or angry, big, cute, grumpy, puglin and sad
   wolves, and babies sound as they used to (the grown sounds at a baby's voice).
