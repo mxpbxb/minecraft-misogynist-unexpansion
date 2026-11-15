@@ -3,7 +3,7 @@
 # The recipes and items are the content mod `misogynist_unexpansion`.
 [mod]
 id = "misogynist_unexpansion_native"
-version = "0.8.0"
+version = "0.9.0"
 
 [compatibility]
 horizon_revision = "1fe4e6fe0252c44efd41d882daee0468389f7d5f"

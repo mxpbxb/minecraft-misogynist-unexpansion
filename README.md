@@ -29,6 +29,9 @@ A [Horizon](https://playhorizon.dev) mod that takes the game back towards how it
   stay). Make them in a furnace instead: leaf litter from any leaves, wildflowers from a flower
   (dandelion, poppy, blue orchid, allium, azure bluet, red, orange or white tulip, oxeye daisy,
   cornflower, lily of the valley), pink petals from a pink tulip.
+- **Netherite in an anvil.** Put a diamond tool, weapon or piece of armour in an anvil with a
+  netherite ingot for its netherite kind, keeping its enchantments, name and wear: no smithing
+  template needed (1 level).
 - **Deepslate digs faster.** Only 15% slower than stone instead of twice as slow; cobbled
   deepslate likewise against cobblestone, deepslate ores against the stone ores, and polished
   deepslate, its bricks and tiles against stone bricks.
@@ -90,6 +93,8 @@ Install both, then press Build in the launcher:
   Dolphin's Grace is crafted.
 - Renaming vanilla items everywhere: fish scales and fish eggs are named in their tooltips; the
   name shown above the hotbar is still vanilla's.
+- On a server, the babies' looks (a villager's clothes, a horse's colour, a sheep's wool) come
+  from the server a few times a second, so it needs this mod too.
 - Babies are drawn without held items or armour, and a sitting or lying wolf or cat baby stands.
 
 ## Building

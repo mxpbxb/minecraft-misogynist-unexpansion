@@ -146,7 +146,7 @@ fn old(kind: &str) -> Option<&'static Old> {
 }
 
 /// What a baby looks like, as its saved data says: its textures on its model, and its overlays.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq)]
 struct Look {
     texture: String,
     /// Another layer (or the same) drawn over it: layer, texture, tint.
@@ -154,6 +154,95 @@ struct Look {
 }
 
 static LOOKS: LazyLock<Mutex<HashMap<u32, Look>>> = LazyLock::new(Default::default);
+
+/// The looks go from the server to its players' clients on this channel: a client can't read a
+/// mob's saved data, and on a server (not single player) it has nothing else to draw them from.
+pub const CHANNEL: &str = "misogynist_unexpansion_native:baby_looks";
+/// A message stays under the 30 000 bytes a mod message may be.
+const MESSAGE_MAX: usize = 28_000;
+/// Scans (of a few a second) between sending the same looks again, for players who just came.
+const RESEND_EVERY: u32 = 10;
+
+/// What was last sent for each dimension, and how many scans ago.
+static SENT: LazyLock<Mutex<HashMap<String, (Vec<Vec<u8>>, u32)>>> = LazyLock::new(Default::default);
+
+/// The looks as messages, each `first` byte (1 for the first, which replaces what the client
+/// has, 0 for the rest) then one line a baby: `id\ttexture\tlayer,texture,tint;...`.
+fn encode(looks: &[(u32, Look)]) -> Vec<Vec<u8>> {
+    let mut messages = vec![vec![1u8]];
+    for (id, look) in looks {
+        let overlays: Vec<String> = look.overlays.iter().map(|(l, t, c)| format!("{l},{t},{c}")).collect();
+        let line = format!("{id}\t{}\t{}\n", look.texture, overlays.join(";"));
+        if messages.last().is_some_and(|m| m.len() + line.len() > MESSAGE_MAX) {
+            messages.push(vec![0u8]);
+        }
+        if let Some(m) = messages.last_mut() {
+            m.extend_from_slice(line.as_bytes());
+        }
+    }
+    messages
+}
+
+/// A message back into looks, and whether it replaces what the client has.
+fn decode(data: &[u8]) -> Option<(bool, Vec<(u32, Look)>)> {
+    let (&first, rest) = data.split_first()?;
+    let text = std::str::from_utf8(rest).ok()?;
+    let looks = text
+        .lines()
+        .filter_map(|line| {
+            let mut f = line.split('\t');
+            let id = f.next()?.parse().ok()?;
+            let texture = f.next()?.to_owned();
+            let overlays = f
+                .next()
+                .unwrap_or("")
+                .split(';')
+                .filter(|o| !o.is_empty())
+                .filter_map(|o| {
+                    let mut p = o.split(',');
+                    Some((p.next()?.to_owned(), p.next()?.to_owned(), p.next()?.parse().ok()?))
+                })
+                .collect();
+            Some((id, Look { texture, overlays }))
+        })
+        .collect();
+    Some((first == 1, looks))
+}
+
+/// On a client: the looks its server sent.
+pub fn received(data: &[u8]) {
+    let Some((replace, looks)) = decode(data) else { return };
+    if let Ok(mut l) = LOOKS.lock() {
+        if replace {
+            l.clear();
+        }
+        l.extend(looks);
+    }
+}
+
+/// The looks of `dimension` sent to the players in it, when they changed or now and then.
+fn send(host: &mut dyn Host, dimension: &str, found: &[(u32, Look)]) {
+    let mut sorted = found.to_vec();
+    sorted.sort_by_key(|(id, _)| *id);
+    let messages = encode(&sorted);
+    let due = SENT.lock().is_ok_and(|mut s| {
+        let entry = s.entry(dimension.to_owned()).or_default();
+        entry.1 += 1;
+        let due = entry.0 != messages || entry.1 >= RESEND_EVERY;
+        if due {
+            *entry = (messages.clone(), 0);
+        }
+        due
+    });
+    if !due {
+        return;
+    }
+    for player in host.server_players().into_iter().filter(|p| p.dimension == dimension) {
+        for m in &messages {
+            let _ = host.net_send_to_player(player.uuid, CHANNEL, m);
+        }
+    }
+}
 
 /// `DyeColor.getTextureDiffuseColor`, by dye id.
 const DYES: [u32; 16] = [
@@ -299,6 +388,8 @@ pub fn scan(host: &mut dyn Host, dimension: &str) {
         seen.insert(id);
         found.push((id, look_of(o, &tag)));
     }
+    // To the players' clients: on a server they draw from these, not from the server's own.
+    send(host, dimension, &found);
     if let Ok(mut looks) = LOOKS.lock() {
         looks.retain(|id, _| seen.contains(id));
         looks.extend(found);
@@ -469,4 +560,30 @@ pub fn draw(host: &dyn Host, event: &mut MobSubmitEvent<'_>) -> Flow {
     }
     draw.pop();
     Flow::Cancel
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn looks_go_to_the_clients_and_back() {
+        let looks = vec![
+            (7, Look { texture: "entity/horse/horse_white".into(), overlays: vec![("minecraft:horse".into(), "entity/horse/horse_markings_white".into(), 0xFFFFFF)] }),
+            (9, Look { texture: "entity/sheep/sheep".into(), overlays: vec![] }),
+        ];
+        let messages = encode(&looks);
+        assert_eq!(messages.len(), 1);
+        assert_eq!(decode(&messages[0]), Some((true, looks)));
+    }
+
+    #[test]
+    fn many_looks_split_under_the_message_cap() {
+        let looks: Vec<(u32, Look)> = (0..2000).map(|i| (i, Look { texture: "entity/villager/villager".into(), overlays: vec![("minecraft:villager".into(), "entity/villager/type/plains".into(), 16777215)] })).collect();
+        let messages = encode(&looks);
+        assert!(messages.len() > 1 && messages.iter().all(|m| m.len() <= MESSAGE_MAX));
+        assert_eq!(messages.iter().filter(|m| m[0] == 1).count(), 1);
+        let back: usize = messages.iter().map(|m| decode(m).unwrap().1.len()).sum();
+        assert_eq!(back, 2000);
+    }
 }

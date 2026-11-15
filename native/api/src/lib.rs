@@ -16,6 +16,7 @@
 //!   `no-sculk-feature`); sculk is crafted instead, and a bottle o' enchanting from mob heads
 //!   (`farming.rs`).
 //! - Right-clicking a grown crop harvests it and replants it (`farming.rs`).
+//! - Netherite in an anvil: a diamond item and a netherite ingot, no smithing template (`anvil.rs`).
 //! - Deepslate digs only 15% slower than stone (cobbled deepslate than cobblestone, its ores than
 //!   theirs), not twice as slow.
 //! - No leaf litter, wildflowers or pink petals on the ground: none in new terrain (the same
@@ -25,6 +26,7 @@
 //! The first recipes and the Potion of Dolphin's Grace are the content mod `misogynist_unexpansion`;
 //! the sculk ones come from this native half, so that content file stays as servers know it.
 
+mod anvil;
 mod babies;
 mod config;
 mod farming;
@@ -34,8 +36,8 @@ use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::{LazyLock, Mutex};
 
 use horizon_client::mod_api::{
-    BreakSpeedEvent, ChunkLoadEvent, DataPackFilesEvent, EntityJoinLevelEvent, Flow, Hooks, Host, ItemStack, LevelTickPostEvent, LootDropsEvent,
-    LootTableLoadEvent, MobSubmitEvent, RightClickBlockEvent, Tag, Text, TooltipEvent, serde_json::Value,
+    AnvilUpdateEvent, BreakSpeedEvent, ChunkLoadEvent, DataPackFilesEvent, EntityJoinLevelEvent, Flow, Hooks, Host, ItemStack, LevelTickPostEvent, LootDropsEvent,
+    LootTableLoadEvent, MobSubmitEvent, NetFromServerEvent, RightClickBlockEvent, Tag, Text, TooltipEvent, serde_json::Value,
 };
 
 pub fn hooks() -> Box<dyn Hooks> {
@@ -174,6 +176,23 @@ impl Hooks for Mod {
     /// A grown crop right-clicked: harvested and replanted.
     fn right_click_block(&self, host: &mut dyn Host, event: &mut RightClickBlockEvent) -> Flow {
         farming::right_click(host, event.pos, &mut percent)
+    }
+
+    /// A diamond item and a netherite ingot in an anvil: its netherite kind, no template needed.
+    fn anvil_update(&self, host: &mut dyn Host, event: &mut AnvilUpdateEvent<'_>) -> Flow {
+        if let Some(out) = anvil::upgrade(event.left, event.right, |i| host.max_stack_size(i).is_some()) {
+            *event.output = Some(out);
+            event.xp_cost = anvil::XP_COST;
+            event.material_cost = 1;
+        }
+        Flow::Continue
+    }
+
+    /// On a client: the baby looks its server worked out.
+    fn net_from_server(&self, _: &mut dyn Host, event: &mut NetFromServerEvent<'_>) {
+        if event.channel == babies::CHANNEL {
+            babies::received(event.data);
+        }
     }
 
     /// Deepslate digs only 15% slower than the stone it stands for. Asked on both sides, alike.
