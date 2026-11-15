@@ -249,17 +249,6 @@ const DYES: [u32; 16] = [
     0xF9FFFE, 0xF9801D, 0xC74EBD, 0x3AB3DA, 0xFED83D, 0x80C71F, 0xF38BAA, 0x474F52, 0x9D9D97, 0x169C9C, 0x8932B8,
     0x3C44AA, 0x835432, 0x5E7C16, 0xB02E26, 0x1D1D21,
 ];
-const WOLVES: [(&str, &str); 9] = [
-    ("pale", "wolf"),
-    ("spotted", "wolf_spotted"),
-    ("snowy", "wolf_snowy"),
-    ("black", "wolf_black"),
-    ("ashen", "wolf_ashen"),
-    ("rusty", "wolf_rusty"),
-    ("woods", "wolf_woods"),
-    ("chestnut", "wolf_chestnut"),
-    ("striped", "wolf_striped"),
-];
 const HORSE_COLOURS: [&str; 7] = ["white", "creamy", "chestnut", "brown", "black", "gray", "darkbrown"];
 const MARKINGS: [&str; 5] = ["", "white", "whitefield", "whitedots", "blackdots"];
 
@@ -315,8 +304,8 @@ fn look_of(o: &Old, tag: &Compound) -> Look {
             }
         }
         "minecraft:wolf" => {
-            let variant = text(tag, "variant").unwrap_or_else(|| "pale".into());
-            let file = WOLVES.iter().find(|(v, _)| *v == variant).map_or("wolf", |(_, f)| f);
+            // Every wolf is the original (pale) one, whatever variant it was given.
+            let file = "wolf";
             let state = if tame {
                 "_tame"
             } else if tag.get(&"angry_at".into()).is_some() {

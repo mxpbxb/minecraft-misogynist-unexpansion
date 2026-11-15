@@ -3,7 +3,7 @@
 # The recipes and items are the content mod `misogynist_unexpansion`.
 [mod]
 id = "misogynist_unexpansion_native"
-version = "0.9.0"
+version = "0.10.0"
 
 [compatibility]
 horizon_revision = "1fe4e6fe0252c44efd41d882daee0468389f7d5f"
@@ -83,4 +83,59 @@ bindings = [
   { name = "catalog", ty = "&FeatureCatalog", value = "&*self" },
   { name = "json", ty = "&str", value = "json" },
   { name = "blocks", ty = "Option<&FeatureBlockBindings<'_>>", value = "blocks" },
+]
+
+# Animals make their classic sounds: no sound variants, and babies sound as they did (grown sounds at
+# a baby's voice). Every sound a pig, cow, chicken, wolf or cat makes is asked of this function.
+[[injection]]
+id = "classic-sounds"
+kind = "HEAD"
+cancellable = true
+target = "horizon_client_lib::mobs::finalize::variant_sound"
+helper = "classic_sounds.rs"
+bindings = [
+  { name = "m", ty = "&crate::mobs::Mob", value = "m" },
+  { name = "kind", ty = "&str", value = "kind" },
+]
+
+# Wolves only the original colour, farm animals only temperate: spawned, loaded from a save, or as a
+# server reports them (so they look right on a server without this mod too).
+[[injection]]
+id = "original-variants"
+kind = "RETURN"
+target = "horizon_client_lib::mobs::finalize::variant_index"
+helper = "original_variants.rs"
+bindings = [
+  { name = "value", ty = "u8", value = "$value" },
+  { name = "s", ty = "crate::mobs::Species", value = "s" },
+]
+
+# Enchanting in single player costs half the level asked (a server's players: `enchant.rs`): the
+# level and the offer's cost before the click, and the rest of the half taken after it when it
+# enchanted.
+[[module]]
+id = "half-level-enchant-state"
+file = "crates/horizon-client/src/game/stations.rs"
+name = "unexpansion_enchant"
+visibility = "pub(crate)"
+source = "half_level_enchant_state.rs"
+
+[[injection]]
+id = "half-level-enchant-before"
+kind = "HEAD"
+target = "horizon_client::game::stations::Game<'_>::click_enchant"
+helper = "half_level_enchant.rs"
+bindings = [
+  { name = "game", ty = "&crate::game::Game<'_>", value = "&*self" },
+  { name = "button", ty = "usize", value = "button" },
+]
+
+[[injection]]
+id = "half-level-enchant-after"
+kind = "RETURN"
+target = "horizon_client::game::stations::Game<'_>::click_enchant"
+helper = "half_level_enchant_after.rs"
+bindings = [
+  { name = "value", ty = "()", value = "$value" },
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
 ]

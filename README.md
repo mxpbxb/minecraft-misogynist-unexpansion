@@ -29,6 +29,13 @@ A [Horizon](https://playhorizon.dev) mod that takes the game back towards how it
   stay). Make them in a furnace instead: leaf litter from any leaves, wildflowers from a flower
   (dandelion, poppy, blue orchid, allium, azure bluet, red, orange or white tulip, oxeye daisy,
   cornflower, lily of the valley), pink petals from a pink tulip.
+- **Old animal sounds.** Pigs, cows, chickens, wolves and cats make their classic sounds: no big or
+  mini pigs, moody cows, picky chickens, royal cats or angry, big, cute, grumpy, puglin and sad
+  wolves, and babies sound as they used to (the grown sounds at a baby's voice).
+- **Wolves only the original colour.** Every wolf is the original pale one, new or old, and is drawn
+  so even on a server that hasn't got this mod.
+- **Enchanting costs half the level it asks for.** A level 30 enchantment takes 15 levels, a level 8
+  one 4 (never less than vanilla's 1 to 3). The table's tooltip still shows vanilla's 1 to 3.
 - **Netherite in an anvil.** Put a diamond tool, weapon or piece of armour in an anvil with a
   netherite ingot for its netherite kind, keeping its enchantments, name and wear: no smithing
   template needed (1 level).

@@ -3,7 +3,12 @@
 //! - The mobs in `removed_mobs.cfg` (dolphins, foxes, bees, goats and the rest of the newer ones by
 //!   default) never join a world: none spawn, and those already in one are gone when they load.
 //! - No new looks for old mobs: cows, pigs and chickens only temperate, wolves only the original
-//!   (pale) wolf with its classic sounds, old ones included (checked every two seconds).
+//!   (pale) wolf, old ones included (checked every two seconds; the mixin `original-variants` draws
+//!   them so, even on a server without this mod).
+//! - Animals make their classic sounds: no sound variants, and babies sound as they did (the mixin
+//!   `classic-sounds`).
+//! - Enchanting costs half the level it asks for: a level 30 enchantment takes 15 levels
+//!   (`enchant.rs`, and the mixin `half-level-enchant` in single player).
 //! - Powder snow is walked on, leather boots or not (the mixin `powder-snow-walk`).
 //! - Babies look as they did before the baby redesign: villagers, zombies, piglins, hoglins, farm
 //!   animals, wolves, cats, rabbits, horses and squid drawn with the grown model and textures at the
@@ -29,6 +34,7 @@
 mod anvil;
 mod babies;
 mod config;
+mod enchant;
 mod farming;
 mod ground;
 
@@ -36,8 +42,8 @@ use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::{LazyLock, Mutex};
 
 use horizon_client::mod_api::{
-    AnvilUpdateEvent, BreakSpeedEvent, ChunkLoadEvent, DataPackFilesEvent, EntityJoinLevelEvent, Flow, Hooks, Host, ItemStack, LevelTickPostEvent, LootDropsEvent,
-    LootTableLoadEvent, MobSubmitEvent, NetFromServerEvent, RightClickBlockEvent, Tag, Text, TooltipEvent, serde_json::Value,
+    AnvilUpdateEvent, BreakSpeedEvent, ChunkLoadEvent, DataPackFilesEvent, EnchantItemEvent, EntityJoinLevelEvent, Flow, Hooks, Host, ItemStack, LevelTickPostEvent, LootDropsEvent,
+    LootTableLoadEvent, MobSubmitEvent, NetFromServerEvent, PrepareItemEnchantEvent, RightClickBlockEvent, Tag, Text, TooltipEvent, serde_json::Value,
 };
 
 pub fn hooks() -> Box<dyn Hooks> {
@@ -186,6 +192,19 @@ impl Hooks for Mod {
             event.material_cost = 1;
         }
         Flow::Continue
+    }
+
+    /// A server player's enchanting offers, kept to charge half their level.
+    fn prepare_item_enchant(&self, _: &mut dyn Host, event: &mut PrepareItemEnchantEvent<'_>) {
+        enchant::offered(event.player, *event.costs);
+    }
+
+    /// A server player enchanted: half the level asked, less the 1 to 3 levels already taken.
+    fn enchant_item(&self, host: &mut dyn Host, event: &mut EnchantItemEvent<'_>) {
+        let owed = enchant::still_owed(event.player, event.levels);
+        if owed > 0 {
+            host.give_levels(event.player, -owed);
+        }
     }
 
     /// On a client: the baby looks its server worked out.
