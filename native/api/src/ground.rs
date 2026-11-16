@@ -191,6 +191,31 @@ mod tests {
             // Untouched biomes come back as they were.
             assert!(std::ptr::eq(kelp_biomes(PLAINS), PLAINS));
         }
+
+        /// Kelp goes in beside the seagrass, ahead of what a mod adds after it (Wild Caves'
+        /// cobwebs), so every ocean keeps one feature order and the world can be made.
+        #[test]
+        fn kelp_goes_before_a_mods_features() {
+            let step9 = |biome: &str| -> Vec<String> {
+                let mut v: serde_json::Value = serde_json::from_str(biome).unwrap();
+                v["features"][9].as_array_mut().unwrap().push("wildcaves:cobweb".into());
+                let out: serde_json::Value = serde_json::from_str(kelp_biomes(&v.to_string())).unwrap();
+                out["features"][9].as_array().unwrap().iter().map(|f| f.as_str().unwrap().to_owned()).collect()
+            };
+            let after = |list: &[String], a: &str, b: &str| {
+                let at = |n: &str| list.iter().position(|f| f == n).unwrap_or_else(|| panic!("no {n} in {list:?}"));
+                at(a) < at(b)
+            };
+            let warm = step9(WARM_OCEAN);
+            assert!(after(&warm, "minecraft:seagrass_warm", "minecraft:kelp_warm"), "{warm:?}");
+            assert!(after(&warm, "minecraft:kelp_warm", "wildcaves:cobweb"), "{warm:?}");
+            let lukewarm = step9(LUKEWARM_OCEAN);
+            assert!(after(&lukewarm, "minecraft:kelp_warm", "wildcaves:cobweb"), "{lukewarm:?}");
+            for b in [FROZEN_OCEAN, DEEP_FROZEN_OCEAN] {
+                let frozen = step9(b);
+                assert!(after(&frozen, "minecraft:kelp_cold", "wildcaves:cobweb"), "{frozen:?}");
+            }
+        }
     }
 
     /// The worldgen edit the mixins make, run here on vanilla's features.

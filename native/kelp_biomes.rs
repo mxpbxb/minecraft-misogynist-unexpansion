@@ -31,11 +31,20 @@ fn kelp_biomes(value: &str) -> &str {
             list.retain(|v| !is_kelp(v));
         }
     }
-    // Vegetal decoration, where vanilla's kelp grows.
+    // Vegetal decoration, where vanilla's kelp grows: just after the seagrass, as in the lukewarm
+    // ocean, or after the last vanilla feature where there is none. Every biome's features must
+    // keep one order, so kelp at the end, after features a mod adds behind it elsewhere (Wild
+    // Caves' cobwebs), stops a world being made or opened ("feature order cycle found").
     if let Some(kelp) = kelp
         && let Some(list) = steps.get_mut(9).and_then(Value::as_array_mut)
     {
-        list.push(Value::from(kelp));
+        let named = |v: &Value, prefix: &str| v.as_str().is_some_and(|s| s.starts_with(prefix));
+        let at = list
+            .iter()
+            .rposition(|v| named(v, "minecraft:seagrass"))
+            .or_else(|| list.iter().rposition(|v| named(v, "minecraft:")))
+            .map_or(list.len(), |i| i + 1);
+        list.insert(at, Value::from(kelp));
     }
     let Ok(text) = serde_json::to_string(&json) else { return value };
     let text: &'static str = Box::leak(text.into_boxed_str());
