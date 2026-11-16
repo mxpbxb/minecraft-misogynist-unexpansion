@@ -3,7 +3,7 @@
 # The recipes and items are the content mod `misogynist_unexpansion`.
 [mod]
 id = "misogynist_unexpansion_native"
-version = "0.13.0"
+version = "0.14.0"
 
 [compatibility]
 horizon_revision = "1fe4e6fe0252c44efd41d882daee0468389f7d5f"
@@ -110,8 +110,8 @@ bindings = [
   { name = "s", ty = "crate::mobs::Species", value = "s" },
 ]
 
-# Enchanting in single player costs half the level asked (a server's players: `enchant.rs`): the
-# level and the offer's cost before the click, and the rest of the half taken after it when it
+# Enchanting in single player costs the full level asked (a server's players: `enchant.rs`): the
+# level and the offer's cost before the click, and the rest of it taken after it when it
 # enchanted.
 [[module]]
 id = "half-level-enchant-state"
@@ -172,3 +172,51 @@ bindings = [
   { name = "world", ty = "&mut MotionWorld<'_, '_, '_>", value = "&mut *self" },
   { name = "damage_only", ty = "bool", value = "damage_only" },
 ]
+
+# A firework rocket shot from a crossbow does not hurt the player who shot it (it still hurts every
+# other player and mob in its blast): the shooter of the rocket going off, then each player's blast.
+[[module]]
+id = "crossbow-rocket-shooter-state"
+file = "crates/horizon-client/src/game/fireworks.rs"
+name = "unexpansion_rocket"
+visibility = "pub(crate)"
+source = "crossbow_rocket_state.rs"
+
+[[injection]]
+id = "crossbow-rocket-shooter-hook"
+kind = "HEAD"
+target = "horizon_client::game::fireworks::Game<'_>::explode_rocket"
+helper = "crossbow_rocket_shooter.rs"
+bindings = [{ name = "r", ty = "&crate::game::fireworks::Rocket", value = "r" }]
+
+[[injection]]
+id = "crossbow-rocket-spares-shooter"
+kind = "HEAD"
+cancellable = true
+target = "horizon_client::game::fireworks::Game<'_>::rocket_blast_player"
+helper = "crossbow_rocket_spares_shooter.rs"
+bindings = [{ name = "game", ty = "&crate::game::Game<'_>", value = "&*self" }]
+
+# A crossbow loads firework rockets from the inventory too, as it does arrows: a crossbow in the off
+# hand needs no rocket in the main hand. Held ammo still comes first, then the inventory's first
+# arrows or rockets.
+[[injection]]
+id = "crossbow-inventory-rockets"
+kind = "RETURN"
+target = "horizon_client::game::crossbow::projectile_slot"
+helper = "crossbow_inventory_rockets.rs"
+bindings = [
+  { name = "value", ty = "Option<usize>", value = "$value" },
+  { name = "weapon", ty = "&str", value = "weapon" },
+  { name = "hands", ty = "&[(usize, Option<&horizon_client::items::ItemStack>); 2]", value = "&hands" },
+  { name = "inventory", ty = "&[Option<horizon_client::items::ItemStack>]", value = "inventory" },
+]
+
+# A raised shield (or any `blocks_attacks` item) blocks half the damage it would, not all of it: each
+# of its damage reductions halved, so the other half still hurts.
+[[injection]]
+id = "shield-half-block"
+kind = "RETURN"
+target = "horizon_client::game::shield::Game<'_>::blocks_attacks"
+helper = "shield_half_block.rs"
+bindings = [{ name = "value", ty = "Option<std::borrow::Cow<'_, horizon_client::items::BlocksAttacks>>", value = "$value" }]

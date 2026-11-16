@@ -38,8 +38,13 @@ A [Horizon](https://playhorizon.dev) mod that takes the game back towards how it
   wolves, and babies sound as they used to (the grown sounds at a baby's voice).
 - **Wolves only the original colour.** Every wolf is the original pale one, new or old, and is drawn
   so even on a server that hasn't got this mod.
-- **Enchanting costs half the level it asks for.** A level 30 enchantment takes 15 levels, a level 8
-  one 4 (never less than vanilla's 1 to 3). The table's tooltip still shows vanilla's 1 to 3.
+- **Enchanting costs the full level it asks for.** A level 30 enchantment takes 30 levels, a level 8
+  one 8, not vanilla's 1 to 3. The table's tooltip still shows vanilla's 1 to 3.
+- **Shields block half.** A raised shield takes 50% of a hit's damage; the other half still hurts.
+- **Crossbow rockets.** A firework rocket shot from a crossbow never hurts the player who shot it
+  (it still hurts everyone and everything else in its blast), and a crossbow loads rockets from
+  anywhere in the inventory, as it does arrows: held ammo first, then the inventory's first arrows
+  or rockets, so a crossbow in the off hand needs no rocket in the main hand.
 - **Netherite in an anvil.** Put a diamond tool, weapon or piece of armour in an anvil with a
   netherite ingot for its netherite kind, keeping its enchantments, name and wear: no smithing
   template needed (1 level).

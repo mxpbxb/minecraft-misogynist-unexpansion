@@ -9,8 +9,10 @@
 //!   crafted from seagrass and bone meal.
 //! - Animals make their classic sounds: no sound variants, and babies sound as they did (the mixin
 //!   `classic-sounds`).
-//! - Enchanting costs half the level it asks for: a level 30 enchantment takes 15 levels
+//! - Enchanting costs the full level it asks for: a level 30 enchantment takes 30 levels
 //!   (`enchant.rs`, and the mixin `half-level-enchant` in single player).
+//! - Shields block half the damage (mixin `shield-half-block`). Crossbow rockets spare their shooter
+//!   and load from the inventory (mixins `crossbow-rocket-*`, `crossbow-inventory-rockets`).
 //! - Powder snow is walked on, leather boots or not, and never sunk into (the mixin
 //!   `powder-snow-walk`); it slows you as soul sand does (`powder-snow-slow`), and 15 seconds
 //!   standing on it freezes you (`powder-snow-cold`).
@@ -197,12 +199,12 @@ impl Hooks for Mod {
         Flow::Continue
     }
 
-    /// A server player's enchanting offers, kept to charge half their level.
+    /// A server player's enchanting offers, kept to charge their full level.
     fn prepare_item_enchant(&self, _: &mut dyn Host, event: &mut PrepareItemEnchantEvent<'_>) {
         enchant::offered(event.player, *event.costs);
     }
 
-    /// A server player enchanted: half the level asked, less the 1 to 3 levels already taken.
+    /// A server player enchanted: the full level asked, less the 1 to 3 levels already taken.
     fn enchant_item(&self, host: &mut dyn Host, event: &mut EnchantItemEvent<'_>) {
         let owed = enchant::still_owed(event.player, event.levels);
         if owed > 0 {
