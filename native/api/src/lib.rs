@@ -5,7 +5,8 @@
 //! - No new looks for old mobs: cows, pigs and chickens only temperate, wolves only the original
 //!   (pale) wolf, old ones included (checked every two seconds; the mixin `original-variants` draws
 //!   them so, even on a server without this mod).
-//! - Kelp only in warm, lukewarm and frozen oceans, in new terrain (the mixin `kelp-biomes`).
+//! - Kelp only in warm, lukewarm and frozen oceans, in new terrain (the mixin `kelp-biomes`);
+//!   crafted from seagrass and bone meal.
 //! - Animals make their classic sounds: no sound variants, and babies sound as they did (the mixin
 //!   `classic-sounds`).
 //! - Enchanting costs half the level it asks for: a level 30 enchantment takes 15 levels
@@ -27,9 +28,8 @@
 //! - Netherite in an anvil: a diamond item and a netherite ingot, no smithing template (`anvil.rs`).
 //! - Deepslate digs only 15% slower than stone (cobbled deepslate than cobblestone, its ores than
 //!   theirs), not twice as slow.
-//! - No leaf litter, wildflowers or pink petals on the ground: none in new terrain (the same
-//!   mixins), and those already there gone as each chunk loads, once; they are smelted instead,
-//!   from leaves, flowers and pink tulips (`ground.rs`).
+//! - No leaf litter, wildflowers or pink petals in new terrain (the same mixins); those already
+//!   in a world stay. They and kelp are crafted instead (`ground.rs`).
 //!
 //! The first recipes and the Potion of Dolphin's Grace are the content mod `misogynist_unexpansion`;
 //! the sculk ones come from this native half, so that content file stays as servers know it.
@@ -45,7 +45,7 @@ use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::{LazyLock, Mutex};
 
 use horizon_client::mod_api::{
-    AnvilUpdateEvent, BreakSpeedEvent, ChunkLoadEvent, DataPackFilesEvent, EnchantItemEvent, EntityJoinLevelEvent, Flow, Hooks, Host, ItemStack, LevelTickPostEvent, LootDropsEvent,
+    AnvilUpdateEvent, BreakSpeedEvent, DataPackFilesEvent, EnchantItemEvent, EntityJoinLevelEvent, Flow, Hooks, Host, ItemStack, LevelTickPostEvent, LootDropsEvent,
     LootTableLoadEvent, MobSubmitEvent, NetFromServerEvent, PrepareItemEnchantEvent, RightClickBlockEvent, Tag, Text, TooltipEvent, serde_json::Value,
 };
 
@@ -176,7 +176,7 @@ fn more_tropical_fish(v: &mut Value) {
 }
 
 impl Hooks for Mod {
-    /// The sculk and bottle o' enchanting recipes, into the data the server loads.
+    /// The sculk, bottle o' enchanting and flora recipes, into the data the server loads.
     fn data_pack_files(&self, _: &dyn Host, event: &mut DataPackFilesEvent<'_>) {
         event.files.extend(farming::recipes());
         event.files.extend(ground::recipes());
@@ -256,13 +256,7 @@ impl Hooks for Mod {
         Flow::Continue
     }
 
-    /// A chunk loaded: cleared of leaf litter, wildflowers and pink petals on a later tick, once.
-    fn chunk_load(&self, _: &mut dyn Host, event: &mut ChunkLoadEvent<'_>) {
-        ground::loaded(event.dimension, event.chunk, event.new);
-    }
-
     fn level_tick_post(&self, host: &mut dyn Host, event: &mut LevelTickPostEvent<'_>) {
-        ground::tick(host, event.dimension);
         let n = SCAN.fetch_add(1, Ordering::Relaxed);
         if n % 10 == 0 {
             babies::scan(host, event.dimension);

@@ -1,113 +1,24 @@
-//! No leaf litter, wildflowers or pink petals on the ground.
+//! No leaf litter, wildflowers or pink petals generate in new terrain (the mixins `no-sculk-placed`
+//! and `no-sculk-feature`, which also take out the sculk); those already in a world stay. Kelp grows
+//! only in some oceans (the mixin `kelp-biomes`). All four are made instead (`recipes`):
 //!
-//! New terrain never gets them (the mixins `no-sculk-placed` and `no-sculk-feature`, which also
-//! take out the sculk). Terrain generated before is cleared of them once, chunk by chunk, as each
-//! chunk loads: the chunk then remembers it was cleared (an attachment saved with it), so leaf
-//! litter and flowers a player makes in a furnace and places later stay where they are put.
-//!
-//! Leaf litter is smelted from any leaves (vanilla's recipe); wildflowers from a flower and pink
-//! petals from a pink tulip (`recipes`).
+//! - Leaf litter: crafted from any leaves, or smelted from them (vanilla's furnace recipe).
+//! - Wildflowers: crafted from a dandelion and an oxeye daisy, or smelted from a flower.
+//! - Pink petals: crafted from a pink tulip and cherry leaves, or smelted from a pink tulip.
+//! - Kelp: crafted from seagrass and bone meal.
 
-use std::sync::Mutex;
-
-use horizon_client::mod_api::{
-    AttachmentCodec, AttachmentError, AttachmentType, Compound, Holder, Host, NativeBlockEdit, NativeBlockRun, Tag,
-};
-
-/// The blocks taken off the ground.
-pub const GONE: [&str; 3] = ["minecraft:leaf_litter", "minecraft:wildflowers", "minecraft:pink_petals"];
-
-/// Chunks cleared at most per level tick, so a burst of loading doesn't stall a tick.
-const PER_TICK: usize = 16;
-
-/// Chunks loaded and not yet looked at, with their dimension and whether they were just generated.
-static LOADED: Mutex<Vec<(String, [i32; 2], bool)>> = Mutex::new(Vec::new());
-
-fn encode(_: &bool) -> Result<Compound, AttachmentError> {
-    Ok([("cleared".into(), Tag::Byte(1))].into())
-}
-
-fn decode(_: &Compound) -> Result<bool, AttachmentError> {
-    Ok(true)
-}
-
-/// Set on a chunk once its leaf litter and flowers are gone; saved with the chunk.
-static CLEARED: AttachmentType<bool> = AttachmentType {
-    namespace: "misogynist_unexpansion",
-    name: "ground_cleared",
-    default: || false,
-    codec: Some(AttachmentCodec { encode, decode }),
-    copy_on_death: false,
-    sync: false,
-};
-
-/// A chunk came into the world: it is looked at on a later tick, as the hook asks.
-pub fn loaded(dimension: &str, chunk: [i32; 2], new: bool) {
-    if let Ok(mut l) = LOADED.lock() {
-        l.push((dimension.to_owned(), chunk, new));
-    }
-}
-
-/// The edit that turns every leaf litter, wildflower and pink petal block in a chunk's columns to air.
-pub fn clearing(chunk: [i32; 2], min_y: i32, height: u32) -> NativeBlockEdit {
-    let mut runs = Vec::with_capacity(256 * GONE.len());
-    for dx in 0..16 {
-        for dz in 0..16 {
-            for only in 0..GONE.len() as u32 {
-                runs.push(NativeBlockRun {
-                    x: chunk[0] * 16 + dx,
-                    z: chunk[1] * 16 + dz,
-                    y: min_y,
-                    height,
-                    surface: None,
-                    block: 0,
-                    only: Some(only),
-                });
-            }
-        }
-    }
-    NativeBlockEdit { palette: vec!["minecraft:air".into()], filters: GONE.iter().map(|b| (*b).to_owned()).collect(), runs }
-}
-
-/// The level `dimension` is ticking: its chunks that loaded since are cleared, once each.
-pub fn tick(host: &mut dyn Host, dimension: &str) {
-    let mine: Vec<([i32; 2], bool)> = {
-        let Ok(mut l) = LOADED.lock() else { return };
-        let mut taken = Vec::new();
-        l.retain(|(d, c, n)| {
-            if d == dimension && taken.len() < PER_TICK {
-                taken.push((*c, *n));
-                false
-            } else {
-                true
-            }
-        });
-        taken
-    };
-    if mine.is_empty() {
-        return;
-    }
-    let Some((min_y, height)) = host.level(dimension).and_then(|l| host.level_height(l)) else { return };
-    for (chunk, new) in mine {
-        let holder = Holder::Chunk(chunk);
-        if CLEARED.get(host, holder).unwrap_or(true) {
-            continue;
-        }
-        // A chunk just generated has none: it is only marked.
-        if !new {
-            let _ = host.edit_blocks(dimension, &clearing(chunk, min_y, height.max(0) as u32));
-        }
-        let _ = CLEARED.set(host, holder, true);
-    }
-}
-
-/// The furnace recipes, as (data pack key, JSON): wildflowers from any flower but the pink tulip,
-/// pink petals from the pink tulip. Leaf litter from leaves is vanilla's own.
+/// The crafting and furnace recipes, as (data pack key, JSON).
 pub fn recipes() -> Vec<(String, Vec<u8>)> {
     let smelt = |from: &[&str], result: &str| {
         format!(
             r#"{{"type":"minecraft:smelting","category":"misc","cookingtime":200,"experience":0.1,"ingredient":[{}],"result":{{"id":"{result}"}}}}"#,
             from.iter().map(|i| format!("\"{i}\"")).collect::<Vec<_>>().join(",")
+        )
+    };
+    let craft = |items: &[&str], result: &str, count: u32| {
+        format!(
+            r#"{{"type":"minecraft:crafting_shapeless","category":"misc","ingredients":[{}],"result":{{"id":"{result}","count":{count}}}}}"#,
+            items.iter().map(|i| format!("\"{i}\"")).collect::<Vec<_>>().join(",")
         )
     };
     let flowers = [
@@ -126,6 +37,10 @@ pub fn recipes() -> Vec<(String, Vec<u8>)> {
     [
         ("wildflowers_from_smelting", smelt(&flowers, "minecraft:wildflowers")),
         ("pink_petals_from_smelting", smelt(&["minecraft:pink_tulip"], "minecraft:pink_petals")),
+        ("leaf_litter", craft(&["#minecraft:leaves"], "minecraft:leaf_litter", 4)),
+        ("wildflowers", craft(&["minecraft:dandelion", "minecraft:oxeye_daisy"], "minecraft:wildflowers", 4)),
+        ("pink_petals", craft(&["minecraft:pink_tulip", "minecraft:cherry_leaves"], "minecraft:pink_petals", 4)),
+        ("kelp", craft(&["minecraft:seagrass", "minecraft:bone_meal"], "minecraft:kelp", 2)),
     ]
     .into_iter()
     .map(|(name, json)| (format!("recipe/misogynist_unexpansion:{name}"), json.into_bytes()))
@@ -138,20 +53,23 @@ mod tests {
     use horizon_client::mod_api::serde_json::{self, Value};
 
     #[test]
-    fn a_chunk_is_cleared_in_every_column_for_each_block() {
-        let e = clearing([2, -1], -64, 384);
-        assert_eq!(e.runs.len(), 256 * 3);
-        assert_eq!(e.palette, vec!["minecraft:air".to_owned()]);
-        assert!(e.runs.iter().all(|r| (32..48).contains(&r.x) && (-16..0).contains(&r.z) && r.y == -64 && r.height == 384));
-        assert!(e.runs.iter().all(|r| r.only.is_some_and(|o| (o as usize) < e.filters.len())));
-    }
-
-    #[test]
-    fn the_flowers_are_smelted() {
-        for (key, json) in recipes() {
-            let v: Value = serde_json::from_slice(&json).unwrap();
-            assert_eq!(v["type"], "minecraft:smelting", "{key}");
-            assert!(v["ingredient"].as_array().is_some_and(|a| !a.is_empty()));
+    fn the_flora_is_crafted_and_smelted() {
+        let all = recipes();
+        let made: Vec<String> = all
+            .iter()
+            .map(|(key, json)| {
+                let v: Value = serde_json::from_slice(json).unwrap();
+                match v["type"].as_str().unwrap() {
+                    "minecraft:smelting" => assert!(v["ingredient"].as_array().is_some_and(|a| !a.is_empty()), "{key}"),
+                    "minecraft:crafting_shapeless" => assert!(v["ingredients"].as_array().is_some_and(|a| !a.is_empty()), "{key}"),
+                    other => panic!("{key}: {other}"),
+                }
+                assert!(key.starts_with("recipe/misogynist_unexpansion:"), "{key}");
+                if v["type"] == "minecraft:crafting_shapeless" { v["result"]["id"].as_str().unwrap().to_owned() } else { String::new() }
+            })
+            .collect();
+        for b in ["minecraft:leaf_litter", "minecraft:wildflowers", "minecraft:pink_petals", "minecraft:kelp"] {
+            assert!(made.iter().any(|m| m == b), "{b} has no crafting recipe");
         }
     }
 

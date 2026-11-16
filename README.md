@@ -24,14 +24,15 @@ A [Horizon](https://playhorizon.dev) mod that takes the game back towards how it
 - **No sculk in new terrain.** Sculk patches (the deep dark's sculk floors, sensors and shriekers)
   and loose sculk veins no longer generate; the sculk is crafted instead (below). Terrain already
   generated keeps its sculk, and ancient city buildings still have the sculk built into them.
-- **No leaf litter, wildflowers or pink petals on the ground.** None generate in new terrain, and
-  those already in a world disappear as each chunk loads (once per chunk, so any you place later
-  stay). Make them in a furnace instead: leaf litter from any leaves, wildflowers from a flower
-  (dandelion, poppy, blue orchid, allium, azure bluet, red, orange or white tulip, oxeye daisy,
-  cornflower, lily of the valley), pink petals from a pink tulip.
+- **No leaf litter, wildflowers or pink petals generate.** None in new terrain; those already in a
+  world stay. Craft them instead: four leaf litter from any leaves, four wildflowers from a
+  dandelion and an oxeye daisy, four pink petals from a pink tulip and cherry leaves. A furnace still
+  makes them too: leaf litter from leaves, wildflowers from a flower (dandelion, poppy, blue orchid,
+  allium, azure bluet, red, orange or white tulip, oxeye daisy, cornflower, lily of the valley),
+  pink petals from a pink tulip.
 - **Kelp only in warm, lukewarm and frozen oceans.** None grows in ordinary or cold oceans any
   more, and warm and frozen oceans (deep ones too) get it. Only newly generated ocean changes: kelp
-  already in the world stays.
+  already in the world stays. Two kelp are crafted from seagrass and bone meal.
 - **Old animal sounds.** Pigs, cows, chickens, wolves and cats make their classic sounds: no big or
   mini pigs, moody cows, picky chickens, royal cats or angry, big, cute, grumpy, puglin and sad
   wolves, and babies sound as they used to (the grown sounds at a baby's voice).
