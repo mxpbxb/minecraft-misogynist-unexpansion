@@ -45,8 +45,10 @@ A [Horizon](https://playhorizon.dev) mod that takes the game back towards how it
 - **Deepslate digs faster.** Only 15% slower than stone instead of twice as slow; cobbled
   deepslate likewise against cobblestone, deepslate ores against the stone ores, and polished
   deepslate, its bricks and tiles against stone bricks.
-- **Walk on powder snow.** Powder snow holds you up as if you wore leather boots; falling onto it
-  from high up still sinks you in.
+- **Powder snow holds you up, slows you and freezes you.** You walk on it, leather boots or not,
+  and never sink in, even landing on it from high up. It slows you as soul sand does, and after
+  15 seconds standing on it you are frozen and take its damage every two seconds (leather armour
+  still keeps the cold out).
 - **Right-click harvesting.** Right-clicking a fully grown crop (wheat, carrots, potatoes,
   beetroots, nether wart, cocoa) harvests it and replants it: it drops what breaking it would, less
   the one item it is replanted with (no Fortune). Sneak to place blocks on crops as usual.

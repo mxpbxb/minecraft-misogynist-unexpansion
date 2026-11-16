@@ -10,7 +10,9 @@
 //!   `classic-sounds`).
 //! - Enchanting costs half the level it asks for: a level 30 enchantment takes 15 levels
 //!   (`enchant.rs`, and the mixin `half-level-enchant` in single player).
-//! - Powder snow is walked on, leather boots or not (the mixin `powder-snow-walk`).
+//! - Powder snow is walked on, leather boots or not, and never sunk into (the mixin
+//!   `powder-snow-walk`); it slows you as soul sand does (`powder-snow-slow`), and 15 seconds
+//!   standing on it freezes you (`powder-snow-cold`).
 //! - Babies look as they did before the baby redesign: villagers, zombies, piglins, hoglins, farm
 //!   animals, wolves, cats, rabbits, horses and squid drawn with the grown model and textures at the
 //!   old sizes (`babies.rs`).

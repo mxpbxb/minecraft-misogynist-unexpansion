@@ -3,7 +3,7 @@
 # The recipes and items are the content mod `misogynist_unexpansion`.
 [mod]
 id = "misogynist_unexpansion_native"
-version = "0.11.0"
+version = "0.12.0"
 
 [compatibility]
 horizon_revision = "1fe4e6fe0252c44efd41d882daee0468389f7d5f"
@@ -149,4 +149,26 @@ target = "horizon_world::worldgen::generator::GeneratorData::biome_json"
 helper = "kelp_biomes.rs"
 bindings = [
   { name = "value", ty = "&str", value = "$value" },
+]
+
+# Powder snow slows what walks on it, as soul sand does.
+[[injection]]
+id = "powder-snow-slow"
+kind = "RETURN"
+target = "horizon_world::movement_properties::MovementProperties<'_>::bind"
+helper = "powder_snow_slow.rs"
+bindings = [
+  { name = "value", ty = "io::Result<BoundMovementProperties>", value = "$value" },
+  { name = "props", ty = "&MovementProperties<'_>", value = "&*self" },
+]
+
+# Standing on powder snow freezes you after 15 seconds (single player and a server's players).
+[[injection]]
+id = "powder-snow-cold"
+kind = "HEAD"
+target = "horizon_client_lib::motion::MotionWorld<'_,'_,'_>::effects_from_blocks"
+helper = "powder_snow_cold.rs"
+bindings = [
+  { name = "world", ty = "&mut MotionWorld<'_, '_, '_>", value = "&mut *self" },
+  { name = "damage_only", ty = "bool", value = "damage_only" },
 ]
