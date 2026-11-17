@@ -41,6 +41,7 @@ A [Horizon](https://playhorizon.dev) mod that takes the game back towards how it
 - **Enchanting costs the full level it asks for.** A level 30 enchantment takes 30 levels, a level 8
   one 8, not vanilla's 1 to 3. The table's tooltip still shows vanilla's 1 to 3.
 - **Shields block half.** A raised shield takes 50% of a hit's damage; the other half still hurts.
+- **Piercing and Multishot together.** A crossbow can have both, from the table, an anvil or `/enchant`.
 - **Crossbow rockets.** A firework rocket shot from a crossbow never hurts the player who shot it
   (it still hurts everyone and everything else in its blast), and a crossbow loads rockets from
   anywhere in the inventory, as it does arrows: held ammo first, then the inventory's first arrows

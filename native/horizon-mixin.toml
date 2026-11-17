@@ -3,7 +3,7 @@
 # The recipes and items are the content mod `misogynist_unexpansion`.
 [mod]
 id = "misogynist_unexpansion_native"
-version = "0.14.0"
+version = "0.15.0"
 
 [compatibility]
 horizon_revision = "1fe4e6fe0252c44efd41d882daee0468389f7d5f"
@@ -220,3 +220,16 @@ kind = "RETURN"
 target = "horizon_client::game::shield::Game<'_>::blocks_attacks"
 helper = "shield_half_block.rs"
 bindings = [{ name = "value", ty = "Option<std::borrow::Cow<'_, horizon_client::items::BlocksAttacks>>", value = "$value" }]
+
+# Piercing and Multishot can be on one crossbow together (vanilla's crossbow exclusive set keeps
+# them apart): `Enchantments::compatible` answers yes for the two.
+[[injection]]
+id = "piercing-with-multishot"
+kind = "RETURN"
+target = "horizon_items::enchant::Enchantments::compatible"
+helper = "piercing_with_multishot.rs"
+bindings = [
+  { name = "value", ty = "bool", value = "$value" },
+  { name = "a", ty = "&str", value = "a" },
+  { name = "b", ty = "&str", value = "b" },
+]
