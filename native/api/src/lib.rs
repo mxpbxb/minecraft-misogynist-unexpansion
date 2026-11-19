@@ -27,6 +27,8 @@
 //!   `no-sculk-feature`); sculk is crafted instead, and a bottle o' enchanting from mob heads
 //!   (`farming.rs`).
 //! - Right-clicking a grown crop harvests it and replants it (`farming.rs`).
+//! - Villagers are picked up by sneaking and right-clicking them, and set down again with all their
+//!   trades and experience (`villagers.rs`, after Easy Villagers by henkelmax).
 //! - Netherite in an anvil: a diamond item and a netherite ingot, no smithing template (`anvil.rs`).
 //! - Deepslate digs only 15% slower than stone (cobbled deepslate than cobblestone, its ores than
 //!   theirs), not twice as slow.
@@ -42,13 +44,14 @@ mod config;
 mod enchant;
 mod farming;
 mod ground;
+mod villagers;
 
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::{LazyLock, Mutex};
 
 use horizon_client::mod_api::{
-    AnvilUpdateEvent, BreakSpeedEvent, DataPackFilesEvent, EnchantItemEvent, EntityJoinLevelEvent, Flow, Hooks, Host, ItemStack, LevelTickPostEvent, LootDropsEvent,
-    LootTableLoadEvent, MobSubmitEvent, NetFromServerEvent, PrepareItemEnchantEvent, RightClickBlockEvent, Tag, Text, TooltipEvent, serde_json::Value,
+    AnvilUpdateEvent, BreakSpeedEvent, DataPackFilesEvent, EnchantItemEvent, EntityJoinLevelEvent, Flow, Hooks, Host, InteractEntityEvent, ItemStack, LevelTickPostEvent, LootDropsEvent,
+    LootTableLoadEvent, MobSubmitEvent, NetFromServerEvent, PrepareItemEnchantEvent, RightClickBlockEvent, Tag, Text, TooltipEvent, UseItemEvent, UseItemOnEvent, serde_json::Value,
 };
 
 pub fn hooks() -> Box<dyn Hooks> {
@@ -178,6 +181,20 @@ fn more_tropical_fish(v: &mut Value) {
 }
 
 impl Hooks for Mod {
+    /// Sneak and right-click a villager to pick it up (`villagers.rs`).
+    fn interact_entity(&self, host: &mut dyn Host, event: &mut InteractEntityEvent<'_>) -> Flow {
+        villagers::interact_entity(host, event)
+    }
+
+    /// A carried villager used on a block is set down there.
+    fn use_item_on(&self, host: &mut dyn Host, event: &mut UseItemOnEvent<'_>) -> Flow {
+        villagers::use_item_on(host, event)
+    }
+
+    fn use_item(&self, _: &mut dyn Host, event: &mut UseItemEvent<'_>) -> Flow {
+        villagers::use_item(event)
+    }
+
     /// The sculk, bottle o' enchanting and flora recipes, into the data the server loads.
     fn data_pack_files(&self, _: &dyn Host, event: &mut DataPackFilesEvent<'_>) {
         event.files.extend(farming::recipes());

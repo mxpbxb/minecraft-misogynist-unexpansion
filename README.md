@@ -59,6 +59,13 @@ A [Horizon](https://playhorizon.dev) mod that takes the game back towards how it
 - **Right-click harvesting.** Right-clicking a fully grown crop (wheat, carrots, potatoes,
   beetroots, nether wart, cocoa) harvests it and replants it: it drops what breaking it would, less
   the one item it is replanted with (no Fortune). Sneak to place blocks on crops as usual.
+- **Pick up villagers.** Sneak and right-click a villager to pick it up: it becomes an item, a
+  "Villager" ("Baby Villager" for a baby, or its own name) that says its profession and level. Use
+  it on a block to set the villager down again, as it was: its trades, experience, job and gossip.
+  It goes into your empty hand, or your inventory; with no room, the villager stays. A sleeping
+  villager can't be picked up. The idea is
+  [Easy Villagers](https://www.curseforge.com/minecraft/mc-mods/easy-villagers)' (Max Henkel),
+  written anew for Horizon.
 - **Key Binds search by key.** The search box on the Key Binds screen finds a binding by the key
   it is on as well as by its name: type `r`, `shift` or `mouse` to see what uses it. The idea is
   [Controlling](https://github.com/jaredlll08/Controlling)'s (Jaredlll08, MIT), written anew for
