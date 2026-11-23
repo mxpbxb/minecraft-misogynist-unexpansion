@@ -70,6 +70,12 @@ A [Horizon](https://playhorizon.dev) mod that takes the game back towards how it
   it is on as well as by its name: type `r`, `shift` or `mouse` to see what uses it. The idea is
   [Controlling](https://github.com/jaredlll08/Controlling)'s (Jaredlll08, MIT), written anew for
   Horizon. (Horizon already has Mouse Tweaks built in: Horizon Settings, Extras.)
+- **The old water.** Water looks as it did in beta: its own deep blue textures (still and
+  flowing, drawn for this mod), the same colour in every biome (no swamp-green or warm-ocean
+  turquoise), and the old water fog underwater: dark blue, darker the less sky reaches you, and
+  thick, gone 16 blocks out. The fog's colours and distance are
+  [Nostalgic Tweaks](https://github.com/Adrenix/Nostalgic-Tweaks)' old water fog (Adrenix),
+  written anew for Horizon. The colour and fog can be turned off (below).
 - **What the removed mobs gave, made another way:**
 
   | Item | How |
@@ -105,13 +111,27 @@ fox = kept
 
 A saved change takes hold within ten seconds. Nothing else (zombies, creepers...) can be removed.
 
+## The old water's switches
+
+`old_water.cfg`, beside it, turns the old water's colour and fog `on` or `off` (both on at
+first); a saved change takes hold within ten seconds:
+
+```
+colour = on
+fog = on
+```
+
+The old textures come with the content mod: turn it off in Options > Mods for vanilla's (and then
+set `colour = off`, or vanilla's grey water stays untinted).
+
 ## Two parts
 
 Install both, then press Build in the launcher:
 
 - **`misogynist_unexpansion_native`** (`.hnmod`): the code. A native mod: it runs with your
   account's permissions, so the launcher asks before building it.
-- **`misogynist_unexpansion`** (`.hmod`): the first recipes and the potion.
+- **`misogynist_unexpansion`** (`.hmod`): the first recipes, the potion and the old water
+  textures.
 
 ## Not possible yet
 
@@ -122,6 +142,10 @@ Install both, then press Build in the launcher:
 - On a server, the babies' looks (a villager's clothes, a horse's colour, a sheep's wool) come
   from the server a few times a second, so it needs this mod too.
 - Babies are drawn without held items or armour, and a sitting or lying wolf or cat baby stands.
+- The old water lighting (water dimming light by 3 a block, not 1): Horizon has no hook into its
+  light engine for it. Underwater particles, drips and ambience are vanilla's too, and Respiration
+  doesn't brighten the old fog.
+- The water bucket and potions keep vanilla's look.
 
 ## Building
 

@@ -34,6 +34,8 @@
 //!   theirs), not twice as slow.
 //! - No leaf litter, wildflowers or pink petals in new terrain (the same mixins); those already
 //!   in a world stay. They and kelp are crafted instead (`ground.rs`).
+//! - The old water: beta's textures (the content mod's), no biome tint and the old water fog, the
+//!   last two switched in `old_water.cfg` (`water.rs`, after Nostalgic Tweaks' old water fog).
 //!
 //! The first recipes and the Potion of Dolphin's Grace are the content mod `misogynist_unexpansion`;
 //! the sculk ones come from this native half, so that content file stays as servers know it.
@@ -45,13 +47,16 @@ mod enchant;
 mod farming;
 mod ground;
 mod villagers;
+mod water;
 
-use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::{LazyLock, Mutex};
 
+use horizon_client::fog::FogType;
 use horizon_client::mod_api::{
-    AnvilUpdateEvent, BreakSpeedEvent, DataPackFilesEvent, EnchantItemEvent, EntityJoinLevelEvent, Flow, Hooks, Host, InteractEntityEvent, ItemStack, LevelTickPostEvent, LootDropsEvent,
-    LootTableLoadEvent, MobSubmitEvent, NetFromServerEvent, PrepareItemEnchantEvent, RightClickBlockEvent, Tag, Text, TooltipEvent, UseItemEvent, UseItemOnEvent, serde_json::Value,
+    AnvilUpdateEvent, BiomeColorsEvent, BreakSpeedEvent, ClientLevelLoadEvent, ClientLevelUnloadEvent, ClientTickPostEvent, ComputeFogColorEvent, DataPackFilesEvent,
+    EnchantItemEvent, EntityJoinLevelEvent, Flow, Hooks, Host, InteractEntityEvent, ItemStack, LevelTickPostEvent, LootDropsEvent, LootTableLoadEvent, MobSubmitEvent,
+    NetFromServerEvent, PrepareItemEnchantEvent, RenderFogEvent, RightClickBlockEvent, Tag, Text, TooltipEvent, UseItemEvent, UseItemOnEvent, serde_json::Value,
 };
 
 pub fn hooks() -> Box<dyn Hooks> {
@@ -61,6 +66,15 @@ pub fn hooks() -> Box<dyn Hooks> {
 struct Mod;
 
 static CONFIG: LazyLock<Mutex<config::Loaded>> = LazyLock::new(|| Mutex::new(config::Loaded::new()));
+/// `old_water.cfg` (`water.rs`), read on this client.
+static WATER: Mutex<water::Loaded> = Mutex::new(water::Loaded::new());
+/// A client world is open, and whether its water colours are still to be asked for.
+static IN_WORLD: AtomicBool = AtomicBool::new(false);
+static RECOLOUR: AtomicBool = AtomicBool::new(false);
+
+fn water_settings() -> water::Settings {
+    WATER.lock().map(|w| w.settings).unwrap_or_default()
+}
 /// Cows, pigs and chickens that just joined a world, to set to the temperate variant next tick.
 static TO_REVERT: Mutex<Vec<(u32, String)>> = Mutex::new(Vec::new());
 /// Ticks between reads of the babies' looks.
@@ -323,6 +337,55 @@ impl Hooks for Mod {
 
     fn mob_submit(&self, host: &dyn Host, event: &mut MobSubmitEvent<'_>) -> Flow {
         babies::draw(host, event)
+    }
+
+    /// One water colour everywhere (white, under the old textures' own blue), while `colour` is on.
+    fn biome_colors(&self, _: &dyn Host, event: &mut BiomeColorsEvent<'_>) {
+        if let Some(tint) = water_settings().water_tint() {
+            event.colors.water = tint;
+        }
+    }
+
+    fn client_level_load(&self, _: &mut dyn Host, _: &mut ClientLevelLoadEvent<'_>) {
+        IN_WORLD.store(true, Ordering::Relaxed);
+        RECOLOUR.store(true, Ordering::Relaxed);
+    }
+
+    fn client_level_unload(&self, _: &mut dyn Host, _: &mut ClientLevelUnloadEvent<'_>) {
+        IN_WORLD.store(false, Ordering::Relaxed);
+    }
+
+    /// `old_water.cfg` read again when it changed; the water colours asked for once a world is
+    /// open, and again when the file changed.
+    fn client_tick_post(&self, host: &mut dyn Host, _: &mut ClientTickPostEvent) {
+        let changed = WATER.lock().map(|mut w| w.refresh(|| host.config_dir().ok())).unwrap_or(false);
+        if changed {
+            RECOLOUR.store(true, Ordering::Relaxed);
+        }
+        if IN_WORLD.load(Ordering::Relaxed) && RECOLOUR.swap(false, Ordering::Relaxed) {
+            host.refresh_biome_colors();
+        }
+    }
+
+    /// Old water fog's colour: dark blue, darker the less sky reaches the eye.
+    fn compute_fog_color(&self, host: &dyn Host, event: &mut ComputeFogColorEvent<'_>) {
+        if event.fog_type != FogType::Water || !water_settings().fog {
+            return;
+        }
+        let (_, sky) = host.light(event.camera.map(|c| c.floor() as i32));
+        *event.rgb = water::fog_rgb(i32::from(sky));
+    }
+
+    /// Old water fog's distance: thick, gone 16 blocks out. Closer fog (blindness) stays.
+    fn render_fog(&self, _: &dyn Host, event: &mut RenderFogEvent<'_>) {
+        if event.fog_type != FogType::Water || !water_settings().fog || event.fog.environmental_end <= water::FOG_END {
+            return;
+        }
+        let fog = &mut *event.fog;
+        fog.environmental_start = water::FOG_START;
+        fog.environmental_end = water::FOG_END;
+        fog.sky_end = water::FOG_END;
+        fog.cloud_end = water::FOG_END;
     }
 }
 

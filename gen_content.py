@@ -1,15 +1,20 @@
 """Writes the content mod `misogynist_unexpansion`: the recipes that stand in for the removed mobs'
-drops, the Potion of Dolphin's Grace, and the new names of turtle scutes and eggs.
+drops, the Potion of Dolphin's Grace, the new names of turtle scutes and eggs, and the old water
+textures.
 
 usage: gen_content.py <content mod folder>
 """
 import json
+import math
+import random
 import shutil
+import struct
 import sys
+import zlib
 from pathlib import Path
 
 out = Path(sys.argv[1])
-NS, VERSION = "misogynist_unexpansion", "0.1.0"
+NS, VERSION = "misogynist_unexpansion", "0.2.0"
 if out.exists():
     shutil.rmtree(out)
 data, assets = out / "data" / NS, out / "assets" / NS
@@ -79,10 +84,62 @@ write(assets / "lang" / "en_us.json", {
 # Turtle scutes and eggs are called fish scales and fish eggs: the native mod's tooltip hook names
 # them (a mod can't change vanilla's own language files).
 
+
+# The old water: beta-style still and flowing water, drawn here (no other mod's art). Vanilla's
+# block atlas, added to here, puts them in place of vanilla's water sprites; the native mod drops
+# the biome tint (`colour` in old_water.cfg), so their own blue shows.
+def png(path, width, height, rgba):
+    """`rgba`: rows top first, four bytes a pixel."""
+    rows = b"".join(b"\0" + bytes(rgba[y * width * 4:(y + 1) * width * 4]) for y in range(height))
+
+    def chunk(kind, body):
+        return struct.pack(">I", len(body)) + kind + body + struct.pack(">I", zlib.crc32(kind + body))
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0))
+                     + chunk(b"IDAT", zlib.compress(rows, 9)) + chunk(b"IEND", b""))
+
+
+def water(size, frames, flow, seed):
+    """`frames` frames of `size` square, stacked: ripples that tile and loop, and for flowing water
+    run one pixel down a frame. Deep blue to pale blue, mostly see-through, as beta's was."""
+    rnd = random.Random(seed)
+    waves = [(rnd.choice([-3, -2, -1, 1, 2, 3]), rnd.choice([-3, -2, -1, 1, 2, 3]),
+              rnd.choice([-2, -1, 1, 2]), rnd.uniform(0, math.tau), rnd.uniform(0.5, 1.0)) for _ in range(7)]
+    deep, pale = (36, 58, 220, 168), (96, 136, 255, 210)
+    total = sum(w[4] for w in waves)
+    pixels = []
+    for t in range(frames):
+        for y in range(size):
+            for x in range(size):
+                v = 0.0
+                for kx, ky, kt, phase, amp in waves:
+                    if flow:
+                        # Down the texture, `size` pixels in `frames` frames: one a frame.
+                        arg = kx * x / size + ky * (y - t * size / frames) / size + phase / math.tau
+                    else:
+                        arg = kx * x / size + ky * y / size + kt * t / frames + phase / math.tau
+                    v += amp * math.sin(math.tau * arg)
+                c = max(0.0, min(1.0, (v / total + 1) / 2)) ** 2.2
+                pixels.extend(round(a + (b - a) * c) for a, b in zip(deep, pale))
+    return pixels
+
+
+textures = assets / "textures" / "block"
+png(textures / "old_water_still.png", 16, 16 * 32, water(16, 32, False, 1))
+write(textures / "old_water_still.png.mcmeta", {"animation": {"frametime": 2}})
+png(textures / "old_water_flow.png", 32, 32 * 32, water(32, 32, True, 2))
+write(textures / "old_water_flow.png.mcmeta", {"animation": {}})
+write(out / "assets" / "minecraft" / "atlases" / "blocks.json", {"sources": [
+    {"type": "minecraft:single", "resource": f"{NS}:block/old_water_{texture}", "sprite": f"minecraft:block/water_{sprite}"}
+    # The overlay (a side against glass or leaves) is tinted as water is, so it goes too.
+    for texture, sprite in (("still", "still"), ("flow", "flow"), ("still", "overlay"))
+]})
+
 (out / "horizon-mod.toml").write_text(f'''id = "{NS}"
 name = "Minecraft Misogynist Unexpansion (assets)"
 version = "{VERSION}"
-description = "The recipes and items of Minecraft Misogynist Unexpansion: honey, glow ink, froglights, fish eggs and a Potion of Dolphin's Grace, crafted. Needs misogynist_unexpansion_native."
+description = "The recipes, items and old water textures of Minecraft Misogynist Unexpansion: honey, glow ink, froglights, fish eggs and a Potion of Dolphin's Grace, crafted. Needs misogynist_unexpansion_native."
 authors = ["mxpbxb"]
 api = "0.2"
 side = "both"
