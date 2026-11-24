@@ -19,6 +19,8 @@ A [Horizon](https://playhorizon.dev) mod that takes the game back towards how it
   (variant, collar), ocelots, rabbits, hoglins, zoglins, horses (colour and markings), donkeys,
   mules, skeleton and zombie horses, squid and glow squid. The mobs this mod removes by default keep
   the new look if you bring them back.
+- **No Dried Ghast, no Pigstep.** The Dried Ghast has no recipe and drops nothing when broken; a
+  Pigstep disc in any chest or loot is one of C418's original discs instead, at random.
 - **Fishing as it was.** Treasure can be caught anywhere again, not only in open water (a pond fishes
   like the ocean), and tropical fish come 7 times in 100 instead of 2.
 - **No sculk in new terrain.** Sculk patches (the deep dark's sculk floors, sensors and shriekers)
@@ -128,7 +130,7 @@ set `colour = off`, or vanilla's grey water stays untinted).
 
 Install both, then press Build in the launcher:
 
-- **`misogynist_unexpansion_native`** (`.hnmod`): the code. A native mod: it runs with your
+- **`misogynist_unexpansion_native`** (`.hmod`, native): the code. A native mod: it runs with your
   account's permissions, so the launcher asks before building it.
 - **`misogynist_unexpansion`** (`.hmod`): the first recipes, the potion and the old water
   textures.
@@ -137,8 +139,8 @@ Install both, then press Build in the launcher:
 
 - A brewing recipe: a mod can't add one (they live in vanilla's own folder), so the Potion of
   Dolphin's Grace is crafted.
-- Renaming vanilla items everywhere: fish scales and fish eggs are named in their tooltips; the
-  name shown above the hotbar is still vanilla's.
+- Nether fossils still place a Dried Ghast now and then: the prebuilt game lets no mod change that
+  piece of world generation. It can't be crafted, and a broken one drops nothing.
 - On a server, the babies' looks (a villager's clothes, a horse's colour, a sheep's wool) come
   from the server a few times a second, so it needs this mod too.
 - Babies are drawn without held items or armour, and a sitting or lying wolf or cat baby stands.
@@ -150,6 +152,8 @@ Install both, then press Build in the launcher:
 ## Building
 
 `gen_content.py <folder>` writes the content mod; `cargo horizon-mod build` packs it. The native
-mod is built by the Horizon launcher (`native-build`), pinned to one Horizon revision.
+mod is `native-sdk/` (SDK packages, from 0.17.0+sdk.1), packed with `cargo horizon-mod build` and
+built by the Horizon launcher (`native-build`), pinned to one Horizon revision. `native/` is the old
+`.hnmod` form, up to 0.17.0.
 
 MIT licensed. No Minecraft code or assets are included.
