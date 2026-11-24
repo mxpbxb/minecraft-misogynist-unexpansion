@@ -73,8 +73,8 @@ A [Horizon](https://playhorizon.dev) mod that takes the game back towards how it
   [Controlling](https://github.com/jaredlll08/Controlling)'s (Jaredlll08, MIT), written anew for
   Horizon. (Horizon already has Mouse Tweaks built in: Horizon Settings, Extras.)
 - **The old water.** Water looks as it did in beta: its own deep blue textures (still and
-  flowing, drawn for this mod), the same colour in every biome (no swamp-green or warm-ocean
-  turquoise), and the old water fog underwater: dark blue, darker the less sky reaches you, and
+  flowing, drawn for this mod), beta's one blue in every biome (no swamp-green), only warm and
+  lukewarm oceans leaning a little towards their lighter blue, and the old water fog underwater: dark blue, darker the less sky reaches you, and
   thick, gone 16 blocks out. The fog's colours and distance are
   [Nostalgic Tweaks](https://github.com/Adrenix/Nostalgic-Tweaks)' old water fog (Adrenix),
   written anew for Horizon. The colour and fog can be turned off (below).

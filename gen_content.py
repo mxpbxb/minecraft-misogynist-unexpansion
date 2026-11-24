@@ -14,7 +14,7 @@ import zlib
 from pathlib import Path
 
 out = Path(sys.argv[1])
-NS, VERSION = "misogynist_unexpansion", "0.2.0"
+NS, VERSION = "misogynist_unexpansion", "0.2.1"
 if out.exists():
     shutil.rmtree(out)
 data, assets = out / "data" / NS, out / "assets" / NS
@@ -87,7 +87,8 @@ write(assets / "lang" / "en_us.json", {
 
 # The old water: beta-style still and flowing water, drawn here (no other mod's art). Vanilla's
 # block atlas, added to here, puts them in place of vanilla's water sprites; the native mod drops
-# the biome tint (`colour` in old_water.cfg), so their own blue shows.
+# the biome tint for one blue (`colour` in old_water.cfg). They are grey, as vanilla's are, so the
+# blue comes from that tint whichever texture is drawn.
 def png(path, width, height, rgba):
     """`rgba`: rows top first, four bytes a pixel."""
     rows = b"".join(b"\0" + bytes(rgba[y * width * 4:(y + 1) * width * 4]) for y in range(height))
@@ -102,11 +103,11 @@ def png(path, width, height, rgba):
 
 def water(size, frames, flow, seed):
     """`frames` frames of `size` square, stacked: ripples that tile and loop, and for flowing water
-    run one pixel down a frame. Deep blue to pale blue, mostly see-through, as beta's was."""
+    run one pixel down a frame. Grey (the tint makes it blue), dark to light, mostly see-through, as beta's was."""
     rnd = random.Random(seed)
     waves = [(rnd.choice([-3, -2, -1, 1, 2, 3]), rnd.choice([-3, -2, -1, 1, 2, 3]),
               rnd.choice([-2, -1, 1, 2]), rnd.uniform(0, math.tau), rnd.uniform(0.5, 1.0)) for _ in range(7)]
-    deep, pale = (36, 58, 220, 168), (96, 136, 255, 210)
+    deep, pale = (120, 120, 120, 168), (255, 255, 255, 210)
     total = sum(w[4] for w in waves)
     pixels = []
     for t in range(frames):
