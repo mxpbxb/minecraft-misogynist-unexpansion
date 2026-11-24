@@ -14,7 +14,7 @@ import zlib
 from pathlib import Path
 
 out = Path(sys.argv[1])
-NS, VERSION = "misogynist_unexpansion", "0.2.1"
+NS, VERSION = "misogynist_unexpansion", "0.2.2"
 if out.exists():
     shutil.rmtree(out)
 data, assets = out / "data" / NS, out / "assets" / NS
@@ -131,7 +131,12 @@ png(textures / "old_water_still.png", 16, 16 * 32, water(16, 32, False, 1))
 write(textures / "old_water_still.png.mcmeta", {"animation": {"frametime": 2}})
 png(textures / "old_water_flow.png", 32, 32 * 32, water(32, 32, True, 2))
 write(textures / "old_water_flow.png.mcmeta", {"animation": {}})
-write(out / "assets" / "minecraft" / "atlases" / "blocks.json", {"sources": [
+# The swap is a pack of its own, `assets/misogynist_unexpansion/resourcepacks/old_water`, which the native half turns on while
+# `old_water.cfg` wants the old textures (`water = new` or `textures = off` leaves vanilla's).
+pack = assets / "resourcepacks" / "old_water"
+write(pack / "pack.mcmeta", {"pack": {"description": "Misogynist Unexpansion's old water",
+                                      "min_format": [97, 1], "max_format": [97, 1]}})
+write(pack / "assets" / "minecraft" / "atlases" / "blocks.json", {"sources": [
     {"type": "minecraft:single", "resource": f"{NS}:block/old_water_{texture}", "sprite": f"minecraft:block/water_{sprite}"}
     # The overlay (a side against glass or leaves) is tinted as water is, so it goes too.
     for texture, sprite in (("still", "still"), ("flow", "flow"), ("still", "overlay"))
