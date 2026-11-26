@@ -23,6 +23,17 @@
 pub const FILE: &str = "old_water.cfg";
 
 /// The content mod's pack with the old textures in place of vanilla's water sprites.
+/// The settings as the game starts, read from `config/misogynist_unexpansion_native/old_water.cfg`
+/// in the game folder (the working directory, where `config_files` keeps it). Used only where
+/// `config_files` is unavailable: finding packs happens before configs may be read.
+pub fn startup_settings() -> Settings {
+    std::env::current_dir()
+        .ok()
+        .and_then(|dir| std::fs::read_to_string(dir.join("config/misogynist_unexpansion_native").join(FILE)).ok())
+        .map(|text| Settings::parse(&text))
+        .unwrap_or_default()
+}
+
 pub const PACK: &str = "misogynist_unexpansion:assets/misogynist_unexpansion/resourcepacks/old_water";
 
 /// Beta's water blue, the one water colour everywhere.
