@@ -1,16 +1,20 @@
 //! `removed_mobs.cfg` in the mod's config folder: which of the listed mobs are taken out of the game.
 //! Only these mobs are listed, each `removed` or `kept`; everything else is always kept. Written with
-//! the defaults (all removed) when missing, and read again when it changes, within ten seconds.
+//! the defaults (all removed but the warden) when missing, and read again when it changes, within ten
+//! seconds. A file from before the warden was listed keeps him.
 
 use std::collections::HashMap;
 
-/// The mobs this mod can take out, all of them taken out by default.
-pub const MOBS: [&str; 32] = [
+/// The mobs this mod can take out, all of them taken out by default but those in `KEPT`.
+pub const MOBS: [&str; 33] = [
     "dolphin", "fox", "sniffer", "copper_golem", "allay", "turtle", "bee", "parrot", "husk", "stray",
     "polar_bear", "panda", "camel", "llama", "phantom", "frog", "glow_squid", "strider", "camel_husk",
     "armadillo", "axolotl", "happy_ghast", "sulfur_cube", "nautilus", "trader_llama", "zombie_nautilus",
-    "bogged", "parched", "breeze", "creaking", "tadpole", "goat",
+    "bogged", "parched", "breeze", "creaking", "tadpole", "goat", "warden",
 ];
+
+/// The listed mobs kept until the file says otherwise.
+pub const KEPT: [&str; 1] = ["warden"];
 
 pub const FILE: &str = "removed_mobs.cfg";
 
@@ -22,7 +26,7 @@ pub struct Config {
 
 impl Default for Config {
     fn default() -> Config {
-        Config { removed: MOBS.iter().map(|&m| (m, true)).collect() }
+        Config { removed: MOBS.iter().map(|&m| (m, !KEPT.contains(&m))).collect() }
     }
 }
 
@@ -110,10 +114,25 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_defaults_remove_every_listed_mob_and_read_back() {
+    fn the_defaults_remove_every_listed_mob_but_the_warden_and_read_back() {
         let c = Config::default();
-        assert!(MOBS.iter().all(|m| c.removes(&format!("minecraft:{m}"))));
+        assert!(MOBS.iter().filter(|m| **m != "warden").all(|m| c.removes(&format!("minecraft:{m}"))));
+        assert!(!c.removes("minecraft:warden"));
+        assert!(c.text().contains("
+warden = kept
+"));
         assert_eq!(Config::parse(&c.text()), c);
+    }
+
+    #[test]
+    fn the_warden_can_be_removed_and_an_older_file_keeps_him() {
+        assert!(Config::parse("warden = removed
+").removes("minecraft:warden"));
+        let older = Config::parse("fox = kept
+goat = removed
+");
+        assert!(!older.removes("minecraft:warden"));
+        assert!(!older.removes("minecraft:fox"));
     }
 
     #[test]

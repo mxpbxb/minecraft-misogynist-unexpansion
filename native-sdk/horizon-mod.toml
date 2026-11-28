@@ -1,6 +1,6 @@
 id = "misogynist_unexpansion_native"
 name = "Minecraft Misogynist Unexpansion"
-version = "0.19.2+sdk.1"
+version = "0.20.0+sdk.1"
 description = "Restores classic mob variants and sounds and adds survival rules for crafting, farming and exploration."
 authors = ["mxpbxb"]
 api = "0.2"
@@ -18,6 +18,13 @@ file = "crates/horizon-world/src/lib.rs"
 name = "no_sculk"
 visibility = "pub(crate)"
 source = "src/mixins/no_sculk_edit.rs"
+
+[[native.module]]
+id = "worldgen-state"
+file = "crates/horizon-world/src/lib.rs"
+name = "unexpansion_worldgen"
+visibility = "pub(crate)"
+source = "src/mixins/worldgen_state.rs"
 
 [[native.module]]
 id = "half-level-enchant-state"
@@ -46,6 +53,21 @@ kind = "RETURN"
 target = "horizon_world::worldgen_resources::expanded_feature"
 helper = "src/mixins/no_sculk_resource.rs"
 bindings = [{ name = "value", ty = "String", value = "$value" }]
+
+[[native.mixin]]
+id = "deep-dark-amount"
+kind = "HEAD"
+cancellable = true
+target = "horizon_world::worldgen::biome_placement::extend_presets"
+helper = "src/mixins/deep_dark_amount.rs"
+bindings = [{ name = "presets", ty = "&mut BTreeMap<String, String>", value = "&mut *presets" }, { name = "declarations", ty = "&BTreeMap<String, String>", value = "declarations" }, { name = "biomes", ty = "&BTreeSet<String>", value = "biomes" }]
+
+[[native.mixin]]
+id = "endless-scaffolding"
+kind = "RETURN"
+target = "horizon_world::level::states::StateTable::int"
+helper = "src/mixins/endless_scaffolding.rs"
+bindings = [{ name = "table", ty = "&StateTable", value = "self" }, { name = "state", ty = "BlockStateId", value = "state" }, { name = "value", ty = "i32", value = "$value" }]
 
 [[native.mixin]]
 id = "classic-sounds"

@@ -23,9 +23,11 @@ A [Horizon](https://playhorizon.dev) mod that takes the game back towards how it
   Pigstep disc in any chest or loot is one of C418's original discs instead, at random.
 - **Fishing as it was.** Treasure can be caught anywhere again, not only in open water (a pond fishes
   like the ocean), and tropical fish come 7 times in 100 instead of 2.
-- **No sculk in new terrain.** Sculk patches (the deep dark's sculk floors, sensors and shriekers)
-  and loose sculk veins no longer generate; the sculk is crafted instead (below). Terrain already
-  generated keeps its sculk, and ancient city buildings still have the sculk built into them.
+- **The deep dark, your way.** `worldgen.cfg` sets how much of the deep underground is deep dark
+  (1.0 is vanilla's) and whether it generates its sculk (on at first). With sculk off, sculk
+  patches (the deep dark's sculk floors, sensors and shriekers) and loose sculk veins no longer
+  generate, and the sculk is only crafted (below); terrain already generated keeps its sculk, and
+  ancient city buildings still have the sculk built into them.
 - **No leaf litter, wildflowers or pink petals generate.** None in new terrain; those already in a
   world stay. Craft them instead: four leaf litter from any leaves, four wildflowers from a
   dandelion and an oxeye daisy, four pink petals from a pink tulip and cherry leaves. A furnace still
@@ -111,7 +113,24 @@ dolphin = removed
 fox = kept
 ```
 
-A saved change takes hold within ten seconds. Nothing else (zombies, creepers...) can be removed.
+Every listed mob is removed at first except the warden, who is kept; write `warden = removed` to take
+him out too. A saved change takes hold within ten seconds. Nothing else (zombies, creepers...) can be
+removed.
+
+## The deep dark
+
+`worldgen.cfg`, beside it, is written the first time a world is opened:
+
+```
+deep_dark = 1.0
+sculk = on
+```
+
+`deep_dark` is how much of the deep underground is deep dark: 1.0 is vanilla's amount, 2.0 about
+twice as much, 0.5 about half, 0 none (the deep dark is widened or narrowed in the climate it needs,
+in vanilla's terrain and in every Biomes O' Plenty region alike). `sculk` turns the deep dark's sculk,
+sensors and shriekers `on` or `off`; with it off the deep dark is bare deepslate caves and no warden
+is summoned there. Both change only terrain generated after the world is next opened.
 
 ## The old water's switches
 

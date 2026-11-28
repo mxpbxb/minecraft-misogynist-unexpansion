@@ -1,4 +1,5 @@
-// Misogynist Unexpansion: no sculk, leaf litter, wildflowers or pink petals in new terrain. A
+// Misogynist Unexpansion: no sculk (unless `worldgen.cfg` keeps it), leaf litter, wildflowers or
+// pink petals in new terrain. A
 // feature tree, fully expanded, with every sculk patch given no rounds of spreading or growth and
 // every sculk-vein multiface growth allowed on no face (neither then places anything), every
 // leaf litter, wildflower or pink petal block it would place made air, and the trees' leaf-litter
@@ -8,12 +9,17 @@
 const GONE: [&str; 3] = ["minecraft:leaf_litter", "minecraft:wildflowers", "minecraft:pink_petals"];
 
 pub fn edit(expanded: &str) -> Option<String> {
+    edit_with(expanded, !crate::unexpansion_worldgen::settings().sculk)
+}
+
+/// `edit`, taking out the sculk or not.
+pub fn edit_with(expanded: &str, sculk: bool) -> Option<String> {
     let quoted = |b: &&str| expanded.contains(&format!("\"{b}\""));
-    if !expanded.contains("sculk") && !GONE.iter().any(quoted) {
+    if (!sculk || !expanded.contains("sculk")) && !GONE.iter().any(quoted) {
         return None;
     }
     let mut value: serde_json::Value = serde_json::from_str(expanded).ok()?;
-    walk(&mut value).then(|| value.to_string())
+    walk(&mut value, sculk).then(|| value.to_string())
 }
 
 fn short(s: &str) -> &str {
@@ -41,12 +47,12 @@ fn air_like(v: &serde_json::Value) -> serde_json::Value {
 }
 
 /// The changes made under `v`: whether there were any.
-fn walk(v: &mut serde_json::Value) -> bool {
+fn walk(v: &mut serde_json::Value, sculk: bool) -> bool {
     let mut changed = false;
     match v {
         serde_json::Value::Object(map) => {
             let kind = map.get("type").and_then(|t| t.as_str()).map(|t| short(t).to_owned());
-            match kind.as_deref() {
+            match kind.as_deref().filter(|_| sculk) {
                 Some("sculk_patch") => {
                     changed |= zero(map);
                     if let Some(serde_json::Value::Object(config)) = map.get_mut("config") {
@@ -81,12 +87,12 @@ fn walk(v: &mut serde_json::Value) -> bool {
                 changed |= list.len() != before;
             }
             for child in map.values_mut() {
-                changed |= walk(child);
+                changed |= walk(child, sculk);
             }
         }
         serde_json::Value::Array(items) => {
             for child in items {
-                changed |= walk(child);
+                changed |= walk(child, sculk);
             }
         }
         _ => {}

@@ -171,8 +171,8 @@ mod tests {
         }
 
         #[test]
-        fn sculk_still_goes() {
-            let out = edit(r#"{"type":"minecraft:sculk_patch","config":{"spread_rounds":3,"growth_rounds":1}}"#).unwrap();
+        fn sculk_goes_when_switched_off() {
+            let out = edit_with(r#"{"type":"minecraft:sculk_patch","config":{"spread_rounds":3,"growth_rounds":1}}"#, true).unwrap();
             assert!(out.contains(r#""spread_rounds":0"#));
         }
     }

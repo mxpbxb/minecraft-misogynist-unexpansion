@@ -23,9 +23,9 @@
 //!   called fish scales and fish eggs, everywhere their name shows (their default item name).
 //! - Fishing as before the open-water rule: treasure anywhere, a pond as an ocean; and tropical fish
 //!   five in a hundred more often (7, out of cod's share).
-//! - No sculk patches or sculk veins in new terrain (the mixins `no-sculk-placed` and
-//!   `no-sculk-feature`); sculk is crafted instead, and a bottle o' enchanting from mob heads
-//!   (`farming.rs`).
+//! - Sculk is crafted, and a bottle o' enchanting from mob heads (`farming.rs`); with `sculk = off`
+//!   in `worldgen.cfg`, no sculk patches or sculk veins in new terrain (the mixin `no-sculk-resource`).
+//! - How much deep dark there is, `deep_dark` in `worldgen.cfg` (the mixin `deep-dark-amount`).
 //! - Right-clicking a grown crop harvests it and replants it (`farming.rs`).
 //! - Villagers are picked up by sneaking and right-clicking them, and set down again with all their
 //!   trades and experience (`villagers.rs`, after Easy Villagers by henkelmax).
@@ -48,6 +48,7 @@ mod enchant;
 mod farming;
 mod ground;
 mod retired;
+mod scaffolding;
 mod villagers;
 mod water;
 
@@ -215,6 +216,8 @@ fn more_tropical_fish(v: &mut Value) {
 #[mod_api::horizon_mod]
 impl Hooks for Mod {
     fn register(&self, r: &mut dyn Registrar, _: &RegistrationContext) {
+        let scaffold = r.block_key(scaffolding::BLOCK);
+        r.block_part(scaffold, scaffolding::Scaffolding);
         let egg = r.item_key(villagers::ITEM);
         r.item_part(egg, villagers::CarriedVillager);
         for id in ["minecraft:turtle_scute", "minecraft:turtle_egg"] {
@@ -536,5 +539,96 @@ mod recheck_tests {
         assert!(super::recheck(false, 7, 1));
         let passes = (0..super::RECHECK_EVERY).filter(|&r| super::recheck(true, 7, r)).count();
         assert_eq!(passes, 1);
+    }
+}
+
+// The world generation modules, compiled into Horizon's world crate in the game, tested here.
+#[cfg(test)]
+#[path = "mixins/worldgen_state.rs"]
+mod unexpansion_worldgen;
+#[cfg(test)]
+#[path = "mixins/no_sculk_edit.rs"]
+mod no_sculk;
+
+#[cfg(test)]
+mod worldgen_tests {
+    use crate::{no_sculk, unexpansion_worldgen as w};
+    use std::collections::BTreeMap;
+
+    #[test]
+    fn the_default_file_is_vanilla_with_sculk_and_reads_back() {
+        let s = w::Settings::default();
+        assert_eq!(s, w::Settings { deep_dark: 1.0, sculk: true });
+        assert!(w::text(s).contains("\ndeep_dark = 1.0\n"));
+        assert!(w::text(s).contains("\nsculk = on\n"));
+        assert_eq!(w::parse(&w::text(s)), s);
+        let more = w::Settings { deep_dark: 2.5, sculk: false };
+        assert_eq!(w::parse(&w::text(more)), more);
+    }
+
+    #[test]
+    fn a_bad_amount_keeps_vanillas() {
+        assert_eq!(w::parse("deep_dark = -1\n").deep_dark, 1.0);
+        assert_eq!(w::parse("deep_dark = lots\n").deep_dark, 1.0);
+        assert_eq!(w::parse("deep_dark = NaN\n").deep_dark, 1.0);
+        assert_eq!(w::parse("deep_dark = 0\n").deep_dark, 0.0);
+        assert_eq!(w::parse("deep_dark = 0.25 # a quarter\n").deep_dark, 0.25);
+    }
+
+    fn table() -> BTreeMap<String, String> {
+        let deep = r#"{"biome":"minecraft:deep_dark","coordinates":[[-10000,10000],[-10000,10000],[-10000,10000],[-10000,-3750],[11000,11000],[-10000,10000]],"offset":0}"#;
+        let plains = r#"{"biome":"minecraft:plains","coordinates":[[-4500,2000],[-10000,-3500],[-1100,10000],[-10000,10000],[0,0],[-10000,10000]],"offset":0}"#;
+        let region = r#"{"biome":"minecraft:deep_dark","coordinates":[[-10000,10000],[-10000,10000],[-10000,10000],[-10000,-3750],[11000,11000],[-10000,10000]],"offset":0,"horizon:additive":true,"horizon:group":"biomesoplenty:overworld_primary"}"#;
+        [
+            ("minecraft:overworld".to_owned(), format!("[{deep},{plains},{region}]")),
+            ("minecraft:nether".to_owned(), "[]".to_owned()),
+        ]
+        .into_iter()
+        .collect()
+    }
+
+    fn erosion_tops(presets: &BTreeMap<String, String>) -> Vec<i64> {
+        let t: serde_json::Value = serde_json::from_str(&presets["minecraft:overworld"]).unwrap();
+        t.as_array()
+            .unwrap()
+            .iter()
+            .filter(|e| e["biome"] == "minecraft:deep_dark")
+            .map(|e| e["coordinates"][3][1].as_i64().unwrap())
+            .collect()
+    }
+
+    #[test]
+    fn the_deep_dark_widens_and_narrows_in_every_region() {
+        let mut more = table();
+        w::scale_deep_dark(&mut more, 2.0);
+        assert_eq!(erosion_tops(&more), vec![2500, 2500]);
+        let mut half = table();
+        w::scale_deep_dark(&mut half, 0.5);
+        assert_eq!(erosion_tops(&half), vec![-6875, -6875]);
+        let mut all = table();
+        w::scale_deep_dark(&mut all, 10.0);
+        assert_eq!(erosion_tops(&all), vec![10000, 10000]);
+        assert!(more["minecraft:overworld"].contains("\"minecraft:plains\""));
+        assert!(more["minecraft:overworld"].contains("[-10000,-3500]"));
+        assert!(more["minecraft:overworld"].contains("horizon:group"));
+        assert_eq!(more["minecraft:nether"], "[]");
+    }
+
+    #[test]
+    fn no_deep_dark_at_zero() {
+        let mut none = table();
+        w::scale_deep_dark(&mut none, 0.0);
+        assert!(erosion_tops(&none).is_empty());
+        assert!(none["minecraft:overworld"].contains("\"minecraft:plains\""));
+    }
+
+    #[test]
+    fn the_sculk_switch_keeps_or_strips_the_deep_darks_patches() {
+        let patch = r#"{"type":"minecraft:sculk_patch","config":{"spread_rounds":10,"growth_rounds":0,"amount_per_charge":32}}"#;
+        assert!(no_sculk::edit_with(patch, false).is_none());
+        let stripped = no_sculk::edit_with(patch, true).unwrap();
+        assert!(stripped.contains("\"spread_rounds\":0"));
+        let litter = r#"{"type":"minecraft:simple_block","config":{"to_place":{"type":"minecraft:simple_state_provider","state":{"Name":"minecraft:leaf_litter"}}}}"#;
+        assert!(no_sculk::edit_with(litter, false).unwrap().contains("minecraft:air"));
     }
 }
